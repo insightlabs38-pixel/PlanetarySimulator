@@ -16,6 +16,9 @@ jobs:
         run: |
           node --check sim.js
           node --check sim.mjs
+          node --check enhancements.mjs
           node --check physics-core.mjs
       - name: Physics tests
         run: node tests/physics.test.mjs
+      - name: Bundle tests
+        run: node tests/bundle.test.mjs
