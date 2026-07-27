@@ -19,5 +19,6 @@ jobs:
           node --check physics-core.mjs
           node --check physics-globals.js
           node --check enhancements.mjs
+          node --check presentation-boost.mjs
       - name: Physics tests
         run: node tests/physics.test.mjs
