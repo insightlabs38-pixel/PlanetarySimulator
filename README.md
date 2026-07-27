@@ -5,7 +5,7 @@ Orbital Lab is an interactive 2D N-body gravity simulator designed as a portfoli
 The project is now centered on three ideas:
 
 1. **Numerical methods are visible.** Different integrators produce different energy drift and trajectory behavior.
-2. **Experiments are reproducible.** Random systems are seeded, and telemetry can be exported.
+2. **Experiments are reproducible.** Random systems are seeded, telemetry can be exported, and full run bundles can be saved.
 3. **Physics is measurable.** The UI exposes orbital elements, conservation metrics, and benchmark comparisons.
 
 ## Current features
@@ -49,11 +49,13 @@ The project is now centered on three ideas:
 - Phase-space graph
 - CSV export
 - PNG snapshot export
+- Reproducibility bundle export with UI state and canvas capture
 - Benchmark mode comparing all integrators on the same initial conditions
 - Seeded random generation for reproducible experiments
 - Mouse drag-to-launch interaction
 - Trails, velocity vectors, labels, and zoom controls
-- Keyboard shortcuts for pause, reset, CSV export, PNG export, and benchmark runs
+- Keyboard shortcuts for pause, reset, CSV export, PNG export, benchmark runs, and bundle export
+- Automatic pause behavior when the tab is hidden
 
 ## Project structure
 
@@ -63,6 +65,7 @@ PlanetarySimulator/
 ├── styles.css          # Visual system
 ├── sim.js              # Legacy entrypoint that loads the module runtime
 ├── sim.mjs             # Browser runtime and simulation controller
+├── enhancements.mjs    # Reproducibility and tab-aware UI enhancements
 ├── physics-core.mjs    # Physics, integrators, orbital elements, benchmark utilities
 ├── tests/
 │   └── physics.test.mjs
@@ -104,6 +107,7 @@ python3 -m http.server
 - Randomize the system using a seed and rerun it later.
 - Run the benchmark and inspect the generated report.
 - Export CSV telemetry and inspect the numbers outside the browser.
+- Export a bundle and use it as a reproducibility artifact.
 
 ## Testing and CI
 
