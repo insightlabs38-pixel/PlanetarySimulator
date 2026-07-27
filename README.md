@@ -58,6 +58,7 @@ The project now centers on three ideas:
 - Mouse drag-to-launch interaction
 - Trails, velocity vectors, labels, and zoom controls
 - Keyboard shortcuts for pause, reset, CSV export, PNG export, benchmark runs, bundle export, session restore, session clearing, and shortcut help
+- Presentation mode for fullscreen demos with a shareable run brief
 - Automatic pause behavior when the tab is hidden
 - Live diagnostics panel with a stability score, a clear recommendation, and benchmark leader detection
 
@@ -71,6 +72,7 @@ PlanetarySimulator/
 ├── sim.js              # Legacy entrypoint that loads the module runtime
 ├── sim.mjs             # Browser runtime and simulation controller
 ├── enhancements.mjs    # Reproducibility, session persistence, diagnostics, and shortcut overlay
+├── presentation-boost.mjs # Presentation mode and run briefs
 ├── physics-core.mjs    # Physics, integrators, orbital elements, benchmark utilities
 ├── tests/
 │   └── physics.test.mjs
@@ -115,7 +117,7 @@ python3 -m http.server
 - Export a bundle and use it as a reproducibility artifact.
 - Import a bundle and restore a shared experiment.
 - Open the diagnostics panel and copy the summary into notes.
-- Open the shortcut guide and use the resonant preset as a presentation-ready demo.
+- Switch on presentation mode and copy the run brief for a demo slide or interview note.
 - Close and reopen the page to confirm the browser restores the last control state.
 
 ## Testing and CI
