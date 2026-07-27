@@ -151,6 +151,22 @@
     };
   }
 
+  function collectRuntimeSnapshot() {
+    return {
+      schemaVersion: 1,
+      app: 'Orbital Lab',
+      capturedAt: new Date().toISOString(),
+      controls: readControlState(),
+      hud: readHudState(),
+      diagnostics: collectDiagnostics(),
+      benchmarkReport: get('benchmarkOut')?.textContent || null
+    };
+  }
+
+  window.__orbitalLab = {
+    getSnapshot: collectRuntimeSnapshot
+  };
+
   function renderDiagnostics() {
     const panel = ensureDiagnosticsPanel();
     if (!panel) return null;
