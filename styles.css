@@ -32,6 +32,14 @@ button.primary{background:linear-gradient(180deg,#2d5fa8,#21457a);border-color:#
 .orbital-stats{grid-template-columns:1fr}
 .card{background:rgba(255,255,255,.03);border:1px solid rgba(160,188,255,.10);border-radius:14px;padding:10px 12px;min-height:72px}
 .card .k{display:block;color:var(--muted);font-size:12px;margin-bottom:4px}.card .v{font-size:18px;font-variant-numeric:tabular-nums}.card small{color:var(--muted);display:block;margin-top:3px;font-size:11px}
+.diagnostic-shell{display:grid;gap:10px}
+.diagnostic-badges{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.diagnostic-badge{background:rgba(255,255,255,.04);border:1px solid rgba(160,188,255,.10);border-radius:12px;padding:10px 12px;color:var(--muted);font-size:12px;display:grid;gap:6px}
+.diagnostic-badge strong{color:var(--text);font-size:16px;line-height:1.15}
+.diagnostic-grid{display:grid;gap:10px}
+.diagnostic-card{min-height:auto}
+.diagnostic-card .v{font-size:16px;line-height:1.25}
+.diagnostic-card small{line-height:1.45}
 .report{margin:0;white-space:pre-wrap;max-height:220px;overflow:auto;background:rgba(255,255,255,.03);border:1px solid rgba(160,188,255,.10);border-radius:14px;padding:10px 12px;color:#dfe8ff;font-size:12px;line-height:1.5}
 .legend{color:var(--muted);font-size:12px;line-height:1.5}.legend code{color:#dfe9ff;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.06);padding:.1rem .35rem;border-radius:999px}
 .footer{color:var(--muted);font-size:11px;margin-top:12px;line-height:1.5}
@@ -43,4 +51,5 @@ canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
 .hint{position:absolute;left:16px;bottom:16px;max-width:440px;background:rgba(5,9,17,.78);border:1px solid rgba(160,188,255,.14);backdrop-filter:blur(10px);border-radius:14px;padding:10px 12px;color:#dce7fa;box-shadow:0 10px 25px rgba(0,0,0,.22)}
 .hint .mini{color:var(--muted);font-size:11px;margin-top:3px}
 @media(max-width:900px){body{overflow:auto}.app{height:auto;min-height:100%;grid-template-columns:1fr}.panel{max-height:none}.canvas-wrap{height:70vh;min-height:520px}.panel-scroll{max-height:none}}
+@media(max-width:700px){.diagnostic-badges{grid-template-columns:1fr}}
 @media(max-width:560px){.app{padding:8px;gap:8px}.stats{grid-template-columns:1fr}.hud{left:10px;right:10px;top:10px}.hud .pill{font-size:11px;padding:7px 9px}.hint{left:10px;right:10px;bottom:10px}.canvas-wrap{min-height:460px;height:65vh}}
