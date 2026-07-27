@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="Orbital Lab is an interactive n-body gravity simulator with multiple integrators, live diagnostics, and exportable data." />
+  <meta name="description" content="Orbital Lab is an interactive n-body gravity simulator with multiple integrators, live diagnostics, adaptive stepping, and exportable data." />
   <title>Orbital Lab — N-body Gravity Simulator</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -13,7 +13,7 @@
       <header class="panel-header">
         <p class="eyebrow">Physics sandbox</p>
         <h1>Orbital Lab</h1>
-        <p class="subtitle">A polished n-body simulator for orbital mechanics, numerical methods, and data-rich visualization.</p>
+        <p class="subtitle">A computational-physics simulator for orbital mechanics, numerical methods, and scientific visualization.</p>
       </header>
 
       <div class="panel-scroll">
@@ -24,13 +24,19 @@
             <button id="reset">Reset</button>
             <button id="randomize">Randomize</button>
             <button id="exportCsv">Export CSV</button>
-            <button class="wide" id="exportPng">Save PNG</button>
+            <button id="exportPng">Save PNG</button>
+            <button class="wide" id="benchmark">Run Benchmark</button>
           </div>
         </section>
 
         <section class="group">
           <h2>Model</h2>
           <div class="stack">
+            <label>
+              <span>Seed</span>
+              <input id="seed" type="text" value="t5-admissions" spellcheck="false" />
+            </label>
+
             <label>
               <span>Preset</span>
               <select id="preset">
@@ -74,7 +80,7 @@
             </label>
 
             <label>
-              <div class="inline"><span>Timestep</span><span class="value" id="dtOut">0.02</span></div>
+              <div class="inline"><span>Timestep</span><span class="value" id="dtOut">0.020</span></div>
               <input id="dt" type="range" min="0.002" max="0.08" step="0.001" value="0.02">
             </label>
 
@@ -96,6 +102,13 @@
             <label>
               <div class="inline"><span>Zoom</span><span class="value" id="zoomOut">1.00×</span></div>
               <input id="zoom" type="range" min="0.35" max="2.5" step="0.01" value="1">
+            </label>
+
+            <label class="toggle"><input id="adaptive" type="checkbox" checked> Adaptive timestep</label>
+
+            <label>
+              <div class="inline"><span>Adaptive strength</span><span class="value" id="adaptiveOut">1.2×</span></div>
+              <input id="adaptiveStrength" type="range" min="0.6" max="4" step="0.1" value="1.2">
             </label>
           </div>
         </section>
@@ -124,12 +137,30 @@
         </section>
 
         <section class="group">
+          <h2>Orbital elements</h2>
+          <div class="stats orbital-stats">
+            <div class="card"><span class="k">Semi-major axis</span><span class="v" id="semimajorOut">—</span><small>Estimated from specific energy</small></div>
+            <div class="card"><span class="k">Eccentricity</span><span class="v" id="eccentricityOut">—</span><small>Relative orbit shape</small></div>
+            <div class="card"><span class="k">Period</span><span class="v" id="periodOut">—</span><small>Bound orbit only</small></div>
+            <div class="card"><span class="k">Periapsis</span><span class="v" id="periapsisOut">—</span><small>Closest approach estimate</small></div>
+            <div class="card"><span class="k">Apoapsis</span><span class="v" id="apoapsisOut">—</span><small>Farthest approach estimate</small></div>
+            <div class="card"><span class="k">Escape speed</span><span class="v" id="escapeOut">—</span><small>Local escape velocity</small></div>
+            <div class="card"><span class="k">Specific energy</span><span class="v" id="specificEnergyOut">—</span><small>Two-body orbital energy</small></div>
+          </div>
+        </section>
+
+        <section class="group">
+          <h2>Benchmark report</h2>
+          <pre id="benchmarkOut" class="report">Press “Run Benchmark” to compare all integrators on the current initial conditions.</pre>
+        </section>
+
+        <section class="group">
           <h2>Notes</h2>
           <div class="legend">
-            Drag on the canvas to launch a new body. Mouse wheel controls zoom. <code>Space</code> toggles play/pause. <code>R</code> resets. <code>E</code> exports CSV. <code>P</code> saves a PNG snapshot.
+            Drag on the canvas to launch a new body. Mouse wheel controls zoom. <code>Space</code> toggles play/pause. <code>R</code> resets. <code>E</code> exports CSV. <code>P</code> saves a PNG snapshot. <code>B</code> runs the benchmark.
           </div>
           <div class="footer">
-            Designed to read like a portfolio project: modular code, multiple numerical methods, live validation metrics, and exportable scientific data.
+            Designed to read like a portfolio project: modular physics code, numerical-method comparison, live validation metrics, seeded experiments, and exportable scientific data.
           </div>
         </section>
       </div>
@@ -145,11 +176,11 @@
 
       <div class="hint" id="hint">
         <strong>Launch gesture:</strong> click-drag-release to spawn a body with velocity from your drag vector.
-        <div class="mini">A stable baseline uses softening, live energy tracking, and multiple integrators for comparison.</div>
+        <div class="mini">Adaptive stepping increases stability during close encounters. The benchmark panel compares integrators on the same initial conditions.</div>
       </div>
     </section>
   </div>
 
-  <script src="sim.js"></script>
+  <script type="module" src="sim.mjs"></script>
 </body>
 </html>
