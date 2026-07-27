@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="Orbital Lab is an interactive n-body gravity simulator with multiple integrators, live diagnostics, and exportable data." />
+  <title>Orbital Lab — N-body Gravity Simulator</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="panel">
+      <header class="panel-header">
+        <p class="eyebrow">Physics sandbox</p>
+        <h1>Orbital Lab</h1>
+        <p class="subtitle">A polished n-body simulator for orbital mechanics, numerical methods, and data-rich visualization.</p>
+      </header>
+
+      <div class="panel-scroll">
+        <section class="group">
+          <h2>Simulation</h2>
+          <div class="actions">
+            <button class="primary" id="toggle">Pause</button>
+            <button id="reset">Reset</button>
+            <button id="randomize">Randomize</button>
+            <button id="exportCsv">Export CSV</button>
+            <button class="wide" id="exportPng">Save PNG</button>
+          </div>
+        </section>
+
+        <section class="group">
+          <h2>Model</h2>
+          <div class="stack">
+            <label>
+              <span>Preset</span>
+              <select id="preset">
+                <option value="default">Default System</option>
+                <option value="binary">Binary Star</option>
+                <option value="solar">Solar System Core</option>
+                <option value="earthMoon">Earth–Moon</option>
+                <option value="jovian">Jovian Moons</option>
+                <option value="figure8">Three-Body Figure-8</option>
+                <option value="chaos">Random System</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Integrator</span>
+              <select id="integrator">
+                <option value="euler">Euler</option>
+                <option value="symplectic">Symplectic Euler</option>
+                <option value="verlet">Velocity Verlet</option>
+                <option value="rk4">RK4</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Collision mode</span>
+              <select id="collision">
+                <option value="none">None (Ghost Pass)</option>
+                <option value="merge">Inelastic Merge</option>
+                <option value="bounce">Elastic Bounce</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="group">
+          <h2>Parameters</h2>
+          <div class="stack">
+            <label>
+              <div class="inline"><span>Gravity Constant</span><span class="value" id="gOut">1.00</span></div>
+              <input id="g" type="range" min="0.1" max="5" step="0.01" value="1">
+            </label>
+
+            <label>
+              <div class="inline"><span>Timestep</span><span class="value" id="dtOut">0.02</span></div>
+              <input id="dt" type="range" min="0.002" max="0.08" step="0.001" value="0.02">
+            </label>
+
+            <label>
+              <div class="inline"><span>Central Mass</span><span class="value" id="massOut">9000</span></div>
+              <input id="mass" type="range" min="1000" max="25000" step="100" value="9000">
+            </label>
+
+            <label>
+              <div class="inline"><span>Trail Length</span><span class="value" id="trailOut">90</span></div>
+              <input id="trail" type="range" min="10" max="220" step="1" value="90">
+            </label>
+
+            <label>
+              <div class="inline"><span>Softening</span><span class="value" id="softOut">25</span></div>
+              <input id="softening" type="range" min="2" max="80" step="1" value="25">
+            </label>
+
+            <label>
+              <div class="inline"><span>Zoom</span><span class="value" id="zoomOut">1.00×</span></div>
+              <input id="zoom" type="range" min="0.35" max="2.5" step="0.01" value="1">
+            </label>
+          </div>
+        </section>
+
+        <section class="group">
+          <h2>View</h2>
+          <div class="stack">
+            <label class="toggle"><input id="showTrails" type="checkbox" checked> Show trails</label>
+            <label class="toggle"><input id="showVectors" type="checkbox"> Show velocity vectors</label>
+            <label class="toggle"><input id="showLabels" type="checkbox" checked> Show labels</label>
+          </div>
+        </section>
+
+        <section class="group">
+          <h2>Live metrics</h2>
+          <div class="stats">
+            <div class="card"><span class="k">Bodies</span><span class="v" id="bodiesOut">0</span><small>Active objects</small></div>
+            <div class="card"><span class="k">Time</span><span class="v" id="timeOut">0.00</span><small>Simulation units</small></div>
+            <div class="card"><span class="k">Energy drift</span><span class="v" id="energyOut">0.0000%</span><small>Relative to start</small></div>
+            <div class="card"><span class="k">Momentum</span><span class="v" id="momentumOut">0.00</span><small>Total linear momentum</small></div>
+            <div class="card"><span class="k">Angular momentum</span><span class="v" id="angularOut">0.00</span><small>Scalar z-component</small></div>
+            <div class="card"><span class="k">COM</span><span class="v" id="comOut">0, 0</span><small>Mass-weighted position</small></div>
+            <div class="card"><span class="k">Closest approach</span><span class="v" id="closestOut">0.00</span><small>Minimum pair distance</small></div>
+            <div class="card"><span class="k">Max speed</span><span class="v" id="speedOut">0.00</span><small>Fastest body</small></div>
+          </div>
+        </section>
+
+        <section class="group">
+          <h2>Notes</h2>
+          <div class="legend">
+            Drag on the canvas to launch a new body. Mouse wheel controls zoom. <code>Space</code> toggles play/pause. <code>R</code> resets. <code>E</code> exports CSV. <code>P</code> saves a PNG snapshot.
+          </div>
+          <div class="footer">
+            Designed to read like a portfolio project: modular code, multiple numerical methods, live validation metrics, and exportable scientific data.
+          </div>
+        </section>
+      </div>
+    </aside>
+
+    <section class="canvas-wrap">
+      <canvas id="space" aria-label="Orbital Lab gravity simulator"></canvas>
+
+      <div class="hud">
+        <div class="pill"><strong id="status">Running</strong><span id="statusDetail">Symplectic Euler · Default System</span></div>
+        <div class="pill"><span>Time</span><strong id="hudTime">0.00</strong><span>sim units</span></div>
+      </div>
+
+      <div class="hint" id="hint">
+        <strong>Launch gesture:</strong> click-drag-release to spawn a body with velocity from your drag vector.
+        <div class="mini">A stable baseline uses softening, live energy tracking, and multiple integrators for comparison.</div>
+      </div>
+    </section>
+  </div>
+
+  <script src="sim.js"></script>
+</body>
+</html>
