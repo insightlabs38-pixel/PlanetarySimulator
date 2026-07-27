@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="Orbital Lab is an interactive n-body gravity simulator with multiple integrators, live diagnostics, adaptive stepping, and exportable data." />
+  <meta name="description" content="Orbital Lab is an interactive n-body gravity simulator with multiple integrators, live diagnostics, adaptive stepping, exportable data, and reproducible experiment bundles." />
   <title>Orbital Lab — N-body Gravity Simulator</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles-v2.css" />
 </head>
 <body>
   <div class="app">
@@ -26,8 +26,11 @@
             <button id="exportCsv">Export CSV</button>
             <button id="exportPng">Save PNG</button>
             <button id="exportBundle">Export Bundle</button>
+            <button id="importBundle">Import Bundle</button>
+            <button id="helpToggle">Shortcuts</button>
             <button class="wide" id="benchmark">Run Benchmark</button>
           </div>
+          <input id="bundleFile" type="file" accept="application/json" hidden />
         </section>
 
         <section class="group">
@@ -46,6 +49,7 @@
                 <option value="solar">Solar System Core</option>
                 <option value="earthMoon">Earth–Moon</option>
                 <option value="jovian">Jovian Moons</option>
+                <option value="resonant">Resonant Orbits</option>
                 <option value="figure8">Three-Body Figure-8</option>
                 <option value="chaos">Random System</option>
               </select>
@@ -106,7 +110,6 @@
             </label>
 
             <label class="toggle"><input id="adaptive" type="checkbox" checked> Adaptive timestep</label>
-
             <label>
               <div class="inline"><span>Adaptive strength</span><span class="value" id="adaptiveOut">1.2×</span></div>
               <input id="adaptiveStrength" type="range" min="0.6" max="4" step="0.1" value="1.2">
@@ -158,10 +161,10 @@
         <section class="group">
           <h2>Notes</h2>
           <div class="legend">
-            Drag on the canvas to launch a new body. Mouse wheel controls zoom. <code>Space</code> toggles play/pause. <code>R</code> resets. <code>E</code> exports CSV. <code>P</code> saves a PNG snapshot. <code>B</code> runs the benchmark. <code>Shift+S</code> exports a reproducibility bundle. <code>Shift+L</code> reloads the saved session. <code>Shift+X</code> clears it.
+            Drag on the canvas to launch a new body. Mouse wheel controls zoom. <code>Space</code> toggles play/pause. <code>R</code> resets. <code>E</code> exports CSV. <code>P</code> saves a PNG snapshot. <code>B</code> runs the benchmark. <code>Shift+S</code> exports a reproducibility bundle. <code>Shift+L</code> reloads the saved session. <code>Shift+X</code> clears it. <code>?</code> opens the shortcut guide.
           </div>
           <div class="footer">
-            Designed to read like a portfolio project: modular physics code, numerical-method comparison, live validation metrics, seeded experiments, exportable scientific data, automatic session persistence, a reproducibility bundle for sharing runs, and a live diagnostics panel that makes parameter tuning explicit.
+            Designed to read like a portfolio project: modular physics code, numerical-method comparison, live validation metrics, seeded experiments, exportable scientific data, automatic session persistence, a reproducibility bundle for sharing runs, a resonant-orbit preset, and a live diagnostics panel that makes parameter tuning explicit.
           </div>
         </section>
       </div>
@@ -182,6 +185,7 @@
     </section>
   </div>
 
+  <script src="physics-globals.js"></script>
   <script src="sim.js"></script>
 </body>
 </html>

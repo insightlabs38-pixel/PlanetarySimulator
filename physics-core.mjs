@@ -99,6 +99,20 @@ function jovianPreset() {
   ];
 }
 
+function resonantPreset(centralMass) {
+  const innerRadius = 155;
+  const outerRadius = Math.round(innerRadius * Math.pow(2, 2 / 3));
+  const innerSpeed = Math.sqrt(centralMass / innerRadius);
+  const outerSpeed = Math.sqrt(centralMass / outerRadius);
+
+  return [
+    [0, 0, 0, 0, centralMass, 18, '#f5c542', true, 'Resonant Star', 'star'],
+    [innerRadius, 0, 0, innerSpeed * 0.985, 17, 6.5, '#6fb8ff', false, 'Inner Resonant', 'planet'],
+    [outerRadius, 0, 0, outerSpeed * 0.995, 11, 5.5, '#b8f2e6', false, 'Outer Resonant', 'planet'],
+    [0, 246, 6.15, 0, 1.8, 2.8, '#c77dff', false, 'Companion', 'moon']
+  ];
+}
+
 function figure8Preset() {
   return [
     [-100, 0, 0.35, 0.53, 3000, 12, '#ff6b6b', false, 'Body 1', 'planet'],
@@ -146,6 +160,7 @@ export function buildPreset(name, options = {}) {
     solar: () => solarPreset(centralMass),
     earthMoon: earthMoonPreset,
     jovian: jovianPreset,
+    resonant: () => resonantPreset(centralMass),
     figure8: figure8Preset,
     chaos: () => chaosPreset({ G, centralMass, seed })
   }[name] || (() => defaultPreset(centralMass)))();

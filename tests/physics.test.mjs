@@ -27,6 +27,12 @@ assert.deepEqual(
   chaos2.map(({ x, y, vx, vy, mass }) => [x, y, vx, vy, mass])
 );
 
+const resonant = buildPreset('resonant', { centralMass: 9000 });
+assert.equal(resonant.length, 4);
+assert.equal(resonant[0].fixed, true);
+assert.match(resonant[1].label, /Resonant/i);
+assert.match(resonant[2].label, /Resonant/i);
+
 const star = new Body(0, 0, 0, 0, 10000, 18, '#fff', true, 'Star', 'star');
 const planet = new Body(200, 0, 0, Math.sqrt(10010 / 200), 10, 5, '#6fb8ff', false, 'Planet', 'planet');
 const elements = orbitalElements(planet, star, { G: 1 });

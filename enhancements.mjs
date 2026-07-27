@@ -1,8 +1,13 @@
 (() => {
   'use strict';
 
-  const STORAGE_KEY = 'orbital-lab.session.v1';
+  const STORAGE_KEY = 'orbital-lab.session.v2';
   const get = (id) => document.getElementById(id);
+
+  const CONTROL_IDS = [
+    'g', 'dt', 'mass', 'trail', 'softening', 'zoom', 'seed', 'adaptiveStrength',
+    'adaptive', 'showTrails', 'showVectors', 'showLabels', 'preset', 'integrator', 'collision'
+  ];
 
   function createButton(id, label, className = '') {
     const button = document.createElement('button');
@@ -12,21 +17,34 @@
     return button;
   }
 
-  function ensureBundleButton() {
-    const existing = get('exportBundle');
+  function ensureButton(id, label, anchorId) {
+    const existing = get(id);
     if (existing) return existing;
 
     const actions = document.querySelector('.actions');
     if (!actions) return null;
 
-    const button = createButton('exportBundle', 'Export Bundle');
-    const exportPng = get('exportPng');
-    if (exportPng?.parentElement === actions) {
-      actions.insertBefore(button, exportPng.nextSibling);
+    const button = createButton(id, label);
+    const anchor = anchorId ? get(anchorId) : null;
+    if (anchor?.parentElement === actions) {
+      actions.insertBefore(button, anchor.nextSibling);
     } else {
       actions.appendChild(button);
     }
     return button;
+  }
+
+  function ensureFileInput() {
+    let input = get('bundleFile');
+    if (input) return input;
+
+    input = document.createElement('input');
+    input.id = 'bundleFile';
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.hidden = true;
+    document.body.appendChild(input);
+    return input;
   }
 
   function ensureDiagnosticsPanel() {
@@ -64,12 +82,81 @@
     `;
 
     const benchmarkGroup = get('benchmark')?.closest('.group');
-    if (benchmarkGroup?.parentElement === scroll) {
-      scroll.insertBefore(group, benchmarkGroup.nextSibling);
-    } else {
-      scroll.appendChild(group);
-    }
+    if (benchmarkGroup?.parentElement === scroll) scroll.insertBefore(group, benchmarkGroup.nextSibling);
+    else scroll.appendChild(group);
     return group;
+  }
+
+  function ensureShortcutOverlay() {
+    const existing = get('shortcutOverlay');
+    if (existing) return existing;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'shortcut-overlay';
+    overlay.id = 'shortcutOverlay';
+    overlay.innerHTML = `
+      <div class="shortcut-panel" role="dialog" aria-modal="true" aria-labelledby="shortcutTitle">
+        <header>
+          <div>
+            <h3 id="shortcutTitle">Keyboard shortcuts and workflow</h3>
+            <p>Designed for quick presentation runs and reproducible demonstrations.</p>
+          </div>
+          <button id="closeShortcuts" class="primary" type="button">Close</button>
+        </header>
+        <div class="shortcut-grid">
+          <section class="shortcut-card">
+            <h4>Navigation</h4>
+            <ul>
+              <li><code>Space</code> pause or resume the simulation</li>
+              <li><code>R</code> reset to the default system</li>
+              <li><code>E</code> export CSV telemetry</li>
+              <li><code>P</code> save a PNG snapshot</li>
+            </ul>
+          </section>
+          <section class="shortcut-card">
+            <h4>Reproducibility</h4>
+            <ul>
+              <li><code>Shift+S</code> export a bundle</li>
+              <li><code>Shift+L</code> reload the saved session</li>
+              <li><code>Shift+X</code> clear the saved session</li>
+              <li>Use <strong>Import Bundle</strong> to restore a shared bundle</li>
+            </ul>
+          </section>
+          <section class="shortcut-card">
+            <h4>Physics study</h4>
+            <ul>
+              <li><code>B</code> run the integrator benchmark</li>
+              <li>Try the <strong>Resonant Orbits</strong> preset for commensurate periods</li>
+              <li>Use adaptive stepping for close encounters</li>
+              <li>Compare Verlet and RK4 against Euler</li>
+            </ul>
+          </section>
+          <section class="shortcut-card">
+            <h4>Interaction</h4>
+            <ul>
+              <li>Drag on the canvas to launch a body</li>
+              <li>Mouse wheel changes the zoom</li>
+              <li>Labels and velocity vectors can be toggled in the sidebar</li>
+              <li>Press <code>?</code> again to close this panel</li>
+            </ul>
+          </section>
+        </div>
+        <div class="shortcut-actions">
+          <button id="copyShortcuts" type="button">Copy summary</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  function openShortcuts() {
+    ensureShortcutOverlay().classList.add('open');
+  }
+
+  function closeShortcuts() {
+    const overlay = get('shortcutOverlay');
+    overlay?.classList.remove('open');
   }
 
   function parseNumeric(text) {
@@ -91,6 +178,85 @@
     return '—';
   }
 
+  function readControlState() {
+    return {
+      g: get('g')?.value ?? '1',
+      dt: get('dt')?.value ?? '0.02',
+      mass: get('mass')?.value ?? '9000',
+      trail: get('trail')?.value ?? '90',
+      softening: get('softening')?.value ?? '25',
+      zoom: get('zoom')?.value ?? '1',
+      seed: get('seed')?.value ?? 't5-admissions',
+      adaptiveStrength: get('adaptiveStrength')?.value ?? '1.2',
+      adaptive: Boolean(get('adaptive')?.checked),
+      showTrails: Boolean(get('showTrails')?.checked),
+      showVectors: Boolean(get('showVectors')?.checked),
+      showLabels: Boolean(get('showLabels')?.checked),
+      preset: get('preset')?.value ?? 'default',
+      integrator: get('integrator')?.value ?? 'symplectic',
+      collision: get('collision')?.value ?? 'none',
+      running: String(get('toggle')?.textContent || '').trim().toLowerCase() === 'pause'
+    };
+  }
+
+  function readHudState() {
+    return {
+      status: get('status')?.textContent ?? '—',
+      statusDetail: get('statusDetail')?.textContent ?? '—',
+      time: get('hudTime')?.textContent ?? '0.00',
+      benchmarkReport: get('benchmarkOut')?.textContent ?? ''
+    };
+  }
+
+  function applyControlState(snapshot = {}) {
+    const pairs = [
+      ['g', 'value'], ['dt', 'value'], ['mass', 'value'], ['trail', 'value'],
+      ['softening', 'value'], ['zoom', 'value'], ['seed', 'value'], ['adaptiveStrength', 'value'],
+      ['adaptive', 'checked'], ['showTrails', 'checked'], ['showVectors', 'checked'], ['showLabels', 'checked'],
+      ['preset', 'value'], ['integrator', 'value'], ['collision', 'value']
+    ];
+
+    for (const [id, prop] of pairs) {
+      const element = get(id);
+      if (!element || snapshot[id] == null) continue;
+      if (prop === 'checked') element.checked = Boolean(snapshot[id]);
+      else element.value = String(snapshot[id]);
+    }
+
+    const dispatchPairs = [
+      ['g', 'input'], ['dt', 'input'], ['mass', 'input'], ['trail', 'input'],
+      ['softening', 'input'], ['zoom', 'input'], ['seed', 'input'], ['adaptiveStrength', 'input'],
+      ['adaptive', 'change'], ['showTrails', 'change'], ['showVectors', 'change'], ['showLabels', 'change'],
+      ['preset', 'change'], ['integrator', 'change'], ['collision', 'change']
+    ];
+
+    for (const [id, type] of dispatchPairs) {
+      const element = get(id);
+      if (!element) continue;
+      element.dispatchEvent(new Event(type, { bubbles: true }));
+    }
+
+    queueMicrotask(() => {
+      const toggle = get('toggle');
+      if (!toggle || snapshot.running == null) return;
+      const shouldBeRunning = Boolean(snapshot.running);
+      const isRunning = toggle.textContent.trim().toLowerCase() === 'pause';
+      if (shouldBeRunning !== isRunning) toggle.click();
+    });
+  }
+
+  function applyBundleSnapshot(payload) {
+    const controls = payload?.controls ?? payload?.simulationSnapshot?.controls ?? payload?.snapshot?.controls;
+    if (controls) applyControlState(controls);
+
+    if (payload?.benchmarkReport && get('benchmarkOut')) {
+      get('benchmarkOut').textContent = payload.benchmarkReport;
+    }
+
+    renderDiagnostics();
+    persistSession();
+  }
+
   function collectDiagnostics() {
     const energyDrift = parseNumeric(get('energyOut')?.textContent) || 0;
     const momentum = parseNumeric(get('momentumOut')?.textContent) || 0;
@@ -105,10 +271,12 @@
 
     const encounterRatio = softening > 0 ? closestApproach / softening : Infinity;
     let score = 100;
-    score -= Math.min(energyDrift * 120, 60);
-    score -= Math.min(Math.log10(momentum + 10) * 6, 18);
-    score -= Number.isFinite(encounterRatio) ? Math.max(0, (1.8 - encounterRatio) * 15) : 0;
+    score -= Math.min(energyDrift * 140, 60);
+    score -= Math.min(Math.log10(momentum + 10) * 5, 16);
+    score -= Number.isFinite(encounterRatio) ? Math.max(0, (1.9 - encounterRatio) * 14) : 0;
     score -= Math.max(0, maxSpeed * timestep - 4) * 4;
+    if ((get('adaptive')?.checked ?? false) === false) score -= 4;
+    if (bestIntegrator === 'euler') score -= 3;
     score = Math.max(0, Math.min(100, Math.round(score)));
 
     const label = score >= 85 ? 'Excellent' : score >= 70 ? 'Stable' : score >= 50 ? 'Watch' : 'Unstable';
@@ -151,22 +319,6 @@
     };
   }
 
-  function collectRuntimeSnapshot() {
-    return {
-      schemaVersion: 1,
-      app: 'Orbital Lab',
-      capturedAt: new Date().toISOString(),
-      controls: readControlState(),
-      hud: readHudState(),
-      diagnostics: collectDiagnostics(),
-      benchmarkReport: get('benchmarkOut')?.textContent || null
-    };
-  }
-
-  window.__orbitalLab = {
-    getSnapshot: collectRuntimeSnapshot
-  };
-
   function renderDiagnostics() {
     const panel = ensureDiagnosticsPanel();
     if (!panel) return null;
@@ -197,6 +349,18 @@
     }
 
     return diagnostics;
+  }
+
+  function collectRuntimeSnapshot() {
+    return {
+      schemaVersion: 3,
+      app: 'Orbital Lab',
+      capturedAt: new Date().toISOString(),
+      controls: readControlState(),
+      hud: readHudState(),
+      diagnostics: collectDiagnostics(),
+      benchmarkReport: get('benchmarkOut')?.textContent || null
+    };
   }
 
   function downloadJson(filename, payload) {
@@ -236,7 +400,7 @@
     const canvas = get('space');
     const diagnostics = collectDiagnostics();
     return {
-      schemaVersion: 2,
+      schemaVersion: 3,
       app: 'Orbital Lab',
       createdAt: new Date().toISOString(),
       userAgent: navigator.userAgent,
@@ -253,6 +417,10 @@
     downloadJson('orbital_lab_bundle.json', captureBundle());
   }
 
+  function importBundle() {
+    ensureFileInput().click();
+  }
+
   function persistSession() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(readControlState()));
@@ -266,41 +434,7 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return false;
       const snapshot = JSON.parse(raw);
-      const pairs = [
-        ['g', 'value'], ['dt', 'value'], ['mass', 'value'], ['trail', 'value'],
-        ['softening', 'value'], ['zoom', 'value'], ['seed', 'value'], ['adaptiveStrength', 'value'],
-        ['adaptive', 'checked'], ['showTrails', 'checked'], ['showVectors', 'checked'], ['showLabels', 'checked'],
-        ['preset', 'value'], ['integrator', 'value'], ['collision', 'value']
-      ];
-
-      for (const [id, prop] of pairs) {
-        const element = get(id);
-        if (!element || snapshot[id] == null) continue;
-        if (prop === 'checked') element.checked = Boolean(snapshot[id]);
-        else element.value = String(snapshot[id]);
-      }
-
-      const dispatch = (id, type) => {
-        const element = get(id);
-        if (!element) return;
-        element.dispatchEvent(new Event(type, { bubbles: true }));
-      };
-
-      [
-        ['g', 'input'], ['dt', 'input'], ['mass', 'input'], ['trail', 'input'],
-        ['softening', 'input'], ['zoom', 'input'], ['seed', 'input'], ['adaptiveStrength', 'input'],
-        ['adaptive', 'change'], ['showTrails', 'change'], ['showVectors', 'change'], ['showLabels', 'change'],
-        ['preset', 'change'], ['integrator', 'change'], ['collision', 'change']
-      ].forEach(([id, type]) => dispatch(id, type));
-
-      queueMicrotask(() => {
-        const toggle = get('toggle');
-        if (!toggle || snapshot.running == null) return;
-        const shouldBeRunning = Boolean(snapshot.running);
-        const isRunning = toggle.textContent.trim().toLowerCase() === 'pause';
-        if (shouldBeRunning !== isRunning) toggle.click();
-      });
-
+      applyControlState(snapshot);
       return true;
     } catch {
       return false;
@@ -348,10 +482,115 @@
     void copyTextToClipboard(summary);
   }
 
-  const bundleButton = ensureBundleButton();
-  if (bundleButton) bundleButton.addEventListener('click', exportBundle);
+  function copyShortcuts() {
+    const summary = [
+      'Orbital Lab shortcuts',
+      'Space: pause or resume',
+      'R: reset',
+      'E: export CSV',
+      'P: save PNG',
+      'B: run benchmark',
+      'Shift+S: export bundle',
+      'Shift+L: reload saved session',
+      'Shift+X: clear saved session',
+      '? : open this guide'
+    ].join('\n');
+    void copyTextToClipboard(summary);
+  }
+
+  function attachEventHandlers() {
+    const bundleButton = ensureButton('exportBundle', 'Export Bundle', 'exportPng');
+    if (bundleButton) bundleButton.addEventListener('click', exportBundle);
+
+    const importButton = ensureButton('importBundle', 'Import Bundle', 'exportBundle');
+    if (importButton) importButton.addEventListener('click', importBundle);
+
+    const helpButton = ensureButton('helpToggle', 'Shortcuts', 'importBundle');
+    if (helpButton) helpButton.addEventListener('click', openShortcuts);
+
+    const fileInput = ensureFileInput();
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files?.[0];
+      fileInput.value = '';
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const payload = JSON.parse(String(reader.result || 'null'));
+          applyBundleSnapshot(payload);
+        } catch {
+          // Ignore malformed bundles.
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    const overlay = ensureShortcutOverlay();
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) closeShortcuts();
+    });
+    overlay.querySelector('#closeShortcuts')?.addEventListener('click', closeShortcuts);
+    overlay.querySelector('#copyShortcuts')?.addEventListener('click', copyShortcuts);
+
+    const copyButton = get('copyDiagnostics');
+    if (copyButton) copyButton.addEventListener('click', copyDiagnostics);
+
+    document.addEventListener('input', () => {
+      schedulePersist();
+      scheduleDiagnostics();
+    }, true);
+    document.addEventListener('change', () => {
+      schedulePersist();
+      scheduleDiagnostics();
+    }, true);
+    window.addEventListener('beforeunload', persistSession);
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        pausedForVisibility = toggleSimulationIfNeeded(false);
+        return;
+      }
+      if (pausedForVisibility) {
+        toggleSimulationIfNeeded(true);
+        pausedForVisibility = false;
+      }
+    });
+
+    window.addEventListener('keydown', (event) => {
+      if (event.defaultPrevented) return;
+      if (event.target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)) return;
+      const key = event.key.toLowerCase();
+      if (key === 's' && event.shiftKey) {
+        event.preventDefault();
+        exportBundle();
+      } else if (key === 'l' && event.shiftKey) {
+        event.preventDefault();
+        loadSession();
+      } else if (key === 'x' && event.shiftKey) {
+        event.preventDefault();
+        clearSavedSession();
+      } else if (key === '?' || (key === '/' && event.shiftKey)) {
+        event.preventDefault();
+        const overlay = ensureShortcutOverlay();
+        if (overlay.classList.contains('open')) closeShortcuts();
+        else openShortcuts();
+      } else if (key === 'escape') {
+        closeShortcuts();
+      }
+    });
+  }
+
+  function schedulePersist() {
+    window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(persistSession, 80);
+  }
+
+  function scheduleDiagnostics() {
+    window.requestAnimationFrame(() => renderDiagnostics());
+  }
 
   ensureDiagnosticsPanel();
+  ensureShortcutOverlay();
   renderDiagnostics();
 
   loadSession();
@@ -359,53 +598,15 @@
 
   let pausedForVisibility = false;
   let saveTimer = 0;
-  const schedulePersist = () => {
-    window.clearTimeout(saveTimer);
-    saveTimer = window.setTimeout(persistSession, 80);
+
+  window.__orbitalLab = {
+    ...(window.__orbitalLab || {}),
+    getSnapshot: collectRuntimeSnapshot,
+    getDiagnostics: collectDiagnostics,
+    applySnapshot: applyBundleSnapshot
   };
 
-  const scheduleDiagnostics = () => {
-    window.requestAnimationFrame(() => renderDiagnostics());
-  };
-
-  document.addEventListener('input', () => {
-    schedulePersist();
-    scheduleDiagnostics();
-  }, true);
-  document.addEventListener('change', () => {
-    schedulePersist();
-    scheduleDiagnostics();
-  }, true);
-  window.addEventListener('beforeunload', persistSession);
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      pausedForVisibility = toggleSimulationIfNeeded(false);
-      return;
-    }
-    if (pausedForVisibility) {
-      toggleSimulationIfNeeded(true);
-      pausedForVisibility = false;
-    }
-  });
-
-  window.addEventListener('keydown', (event) => {
-    if (event.defaultPrevented) return;
-    if (event.target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)) return;
-    if (event.key.toLowerCase() === 's' && event.shiftKey) {
-      event.preventDefault();
-      exportBundle();
-    } else if (event.key.toLowerCase() === 'l' && event.shiftKey) {
-      event.preventDefault();
-      loadSession();
-    } else if (event.key.toLowerCase() === 'x' && event.shiftKey) {
-      event.preventDefault();
-      clearSavedSession();
-    }
-  });
-
-  const copyButton = get('copyDiagnostics');
-  if (copyButton) copyButton.addEventListener('click', copyDiagnostics);
+  attachEventHandlers();
 
   setInterval(renderDiagnostics, 1000);
 })();
