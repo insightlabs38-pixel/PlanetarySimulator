@@ -17,5 +17,6 @@ jobs:
           node --check sim.js
           node --check sim.mjs
           node --check physics-core.mjs
+          node --check enhancements.mjs
       - name: Physics tests
         run: node tests/physics.test.mjs

@@ -3,10 +3,16 @@ import {
   Body,
   benchmarkIntegrators,
   buildPreset,
-  createSeededRng,
+  computeAngularMomentum,
+  computeCenterOfMass,
+  computeClosestApproach,
+  computeMomentum,
   computeTotalEnergy,
+  createSeededRng,
   orbitalElements,
-  stepSystem
+  recommendedSubsteps,
+  stepSystem,
+  summarizeBenchmark
 } from '../physics-core.mjs';
 
 const rngA = createSeededRng('repeatable');
@@ -45,8 +51,32 @@ for (const integrator of ['euler', 'symplectic', 'verlet', 'rk4']) {
   else assert.ok(drift <= eulerDrift + 0.05, `${integrator} drift ${drift} should not exceed Euler ${eulerDrift}`);
 }
 
+const balanced = [
+  new Body(-10, 0, 0, 1, 5, 3, '#fff', false, 'A', 'planet'),
+  new Body(10, 0, 0, -1, 5, 3, '#6fb8ff', false, 'B', 'planet')
+];
+assert.equal(computeMomentum(balanced), 0);
+assert.equal(computeAngularMomentum(balanced), -100);
+const com = computeCenterOfMass(balanced);
+assert.equal(com.x, 0);
+assert.equal(com.y, 0);
+assert.equal(com.totalMass, 10);
+assert.equal(computeClosestApproach(balanced), 20);
+
+const closePair = [
+  new Body(0, 0, 0, 0, 5, 3, '#fff', false, 'A', 'planet'),
+  new Body(5, 0, 0, 0, 5, 3, '#6fb8ff', false, 'B', 'planet')
+];
+const widePair = [
+  new Body(0, 0, 0, 0, 5, 3, '#fff', false, 'A', 'planet'),
+  new Body(50, 0, 0, 0, 5, 3, '#6fb8ff', false, 'B', 'planet')
+];
+assert.ok(recommendedSubsteps(closePair, { dt: 0.08, softening: 2 }) >= recommendedSubsteps(widePair, { dt: 0.08, softening: 2 }));
+
 const benchmark = benchmarkIntegrators(system, { steps: 40, dt: 0.02, G: 1, softening: 0.1 });
 assert.equal(benchmark.length, 4);
 assert.ok(benchmark.every((row) => typeof row.runtimeMs === 'number'));
+assert.match(summarizeBenchmark(benchmark), /Integrator benchmark summary/);
+assert.ok(benchmark.some((row) => row.integrator === 'rk4'));
 
 console.log('physics tests passed');

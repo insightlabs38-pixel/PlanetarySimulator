@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  const STORAGE_KEY = 'orbital-lab.session.v1';
   const get = (id) => document.getElementById(id);
 
   function createButton(id, label, className = '') {
@@ -44,7 +45,13 @@
       return [id, element ? element.checked : null];
     }));
 
-    return { ...controls, ...toggles };
+    const toggle = get('toggle');
+
+    return {
+      ...controls,
+      ...toggles,
+      running: toggle ? toggle.textContent.trim().toLowerCase() === 'pause' : null
+    };
   }
 
   function readHudState() {
@@ -84,6 +91,68 @@
     downloadJson('orbital_lab_bundle.json', captureBundle());
   }
 
+  function persistSession() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(readControlState()));
+    } catch {
+      // Ignore storage failures in restricted/private contexts.
+    }
+  }
+
+  function loadSession() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return false;
+      const snapshot = JSON.parse(raw);
+      const pairs = [
+        ['g', 'value'], ['dt', 'value'], ['mass', 'value'], ['trail', 'value'],
+        ['softening', 'value'], ['zoom', 'value'], ['seed', 'value'], ['adaptiveStrength', 'value'],
+        ['adaptive', 'checked'], ['showTrails', 'checked'], ['showVectors', 'checked'], ['showLabels', 'checked'],
+        ['preset', 'value'], ['integrator', 'value'], ['collision', 'value']
+      ];
+
+      for (const [id, prop] of pairs) {
+        const element = get(id);
+        if (!element || snapshot[id] == null) continue;
+        if (prop === 'checked') element.checked = Boolean(snapshot[id]);
+        else element.value = String(snapshot[id]);
+      }
+
+      const dispatch = (id, type) => {
+        const element = get(id);
+        if (!element) return;
+        element.dispatchEvent(new Event(type, { bubbles: true }));
+      };
+
+      [
+        ['g', 'input'], ['dt', 'input'], ['mass', 'input'], ['trail', 'input'],
+        ['softening', 'input'], ['zoom', 'input'], ['seed', 'input'], ['adaptiveStrength', 'input'],
+        ['adaptive', 'change'], ['showTrails', 'change'], ['showVectors', 'change'], ['showLabels', 'change'],
+        ['preset', 'change'], ['integrator', 'change'], ['collision', 'change']
+      ].forEach(([id, type]) => dispatch(id, type));
+
+      queueMicrotask(() => {
+        const toggle = get('toggle');
+        if (!toggle || snapshot.running == null) return;
+        const shouldBeRunning = Boolean(snapshot.running);
+        const isRunning = toggle.textContent.trim().toLowerCase() === 'pause';
+        if (shouldBeRunning !== isRunning) toggle.click();
+      });
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function clearSavedSession() {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Ignore storage failures.
+    }
+  }
+
   function toggleSimulationIfNeeded(shouldRun) {
     const toggle = get('toggle');
     if (!toggle) return false;
@@ -103,7 +172,20 @@
   const bundleButton = ensureBundleButton();
   if (bundleButton) bundleButton.addEventListener('click', exportBundle);
 
+  loadSession();
+  persistSession();
+
   let pausedForVisibility = false;
+  let saveTimer = 0;
+  const schedulePersist = () => {
+    window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(persistSession, 80);
+  };
+
+  document.addEventListener('input', schedulePersist, true);
+  document.addEventListener('change', schedulePersist, true);
+  window.addEventListener('beforeunload', persistSession);
+
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       pausedForVisibility = toggleSimulationIfNeeded(false);
@@ -121,6 +203,12 @@
     if (event.key.toLowerCase() === 's' && event.shiftKey) {
       event.preventDefault();
       exportBundle();
+    } else if (event.key.toLowerCase() === 'l' && event.shiftKey) {
+      event.preventDefault();
+      loadSession();
+    } else if (event.key.toLowerCase() === 'x' && event.shiftKey) {
+      event.preventDefault();
+      clearSavedSession();
     }
   });
 })();
