@@ -105,10 +105,10 @@
       if (!raw) return false;
       const snapshot = JSON.parse(raw);
       const pairs = [
-        ['preset', 'value'], ['integrator', 'value'], ['collision', 'value'], ['seed', 'value'],
         ['g', 'value'], ['dt', 'value'], ['mass', 'value'], ['trail', 'value'],
-        ['softening', 'value'], ['zoom', 'value'], ['adaptiveStrength', 'value'],
-        ['adaptive', 'checked'], ['showTrails', 'checked'], ['showVectors', 'checked'], ['showLabels', 'checked']
+        ['softening', 'value'], ['zoom', 'value'], ['seed', 'value'], ['adaptiveStrength', 'value'],
+        ['adaptive', 'checked'], ['showTrails', 'checked'], ['showVectors', 'checked'], ['showLabels', 'checked'],
+        ['preset', 'value'], ['integrator', 'value'], ['collision', 'value']
       ];
 
       for (const [id, prop] of pairs) {
@@ -125,10 +125,10 @@
       };
 
       [
-        ['preset', 'change'], ['integrator', 'change'], ['collision', 'change'],
-        ['seed', 'input'], ['g', 'input'], ['dt', 'input'], ['mass', 'input'],
-        ['trail', 'input'], ['softening', 'input'], ['zoom', 'input'], ['adaptiveStrength', 'input'],
-        ['adaptive', 'change'], ['showTrails', 'change'], ['showVectors', 'change'], ['showLabels', 'change']
+        ['g', 'input'], ['dt', 'input'], ['mass', 'input'], ['trail', 'input'],
+        ['softening', 'input'], ['zoom', 'input'], ['seed', 'input'], ['adaptiveStrength', 'input'],
+        ['adaptive', 'change'], ['showTrails', 'change'], ['showVectors', 'change'], ['showLabels', 'change'],
+        ['preset', 'change'], ['integrator', 'change'], ['collision', 'change']
       ].forEach(([id, type]) => dispatch(id, type));
 
       queueMicrotask(() => {
