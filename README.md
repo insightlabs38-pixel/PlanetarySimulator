@@ -6,7 +6,7 @@ The project is now centered on three ideas:
 
 1. **Numerical methods are visible.** Different integrators produce different energy drift and trajectory behavior.
 2. **Experiments are reproducible.** Random systems are seeded, telemetry can be exported, full run bundles can be saved, and the browser now restores the last control state automatically.
-3. **Physics is measurable.** The UI exposes orbital elements, conservation metrics, and benchmark comparisons.
+3. **Physics is measurable.** The UI exposes orbital elements, conservation metrics, benchmark comparisons, and a live diagnostics score that flags unstable runs before they become misleading.
 
 ## Current features
 
@@ -49,7 +49,7 @@ The project is now centered on three ideas:
 - Phase-space graph
 - CSV export
 - PNG snapshot export
-- Reproducibility bundle export with UI state and canvas capture
+- Reproducibility bundle export with UI state, diagnostics, and canvas capture
 - Automatic local session persistence in the browser, with restore and clear shortcuts
 - Benchmark mode comparing all integrators on the same initial conditions
 - Seeded random generation for reproducible experiments
@@ -57,6 +57,7 @@ The project is now centered on three ideas:
 - Trails, velocity vectors, labels, and zoom controls
 - Keyboard shortcuts for pause, reset, CSV export, PNG export, benchmark runs, bundle export, session restore, and session clearing
 - Automatic pause behavior when the tab is hidden
+- Live diagnostics panel with a stability score, a clear recommendation, and benchmark leader detection
 
 ## Project structure
 
@@ -66,7 +67,7 @@ PlanetarySimulator/
 ├── styles.css          # Visual system
 ├── sim.js              # Legacy entrypoint that loads the module runtime
 ├── sim.mjs             # Browser runtime and simulation controller
-├── enhancements.mjs    # Reproducibility, session persistence, and tab-aware UI enhancements
+├── enhancements.mjs    # Reproducibility, session persistence, diagnostics, and tab-aware UI enhancements
 ├── physics-core.mjs    # Physics, integrators, orbital elements, benchmark utilities
 ├── tests/
 │   └── physics.test.mjs
@@ -109,6 +110,7 @@ python3 -m http.server
 - Run the benchmark and inspect the generated report.
 - Export CSV telemetry and inspect the numbers outside the browser.
 - Export a bundle and use it as a reproducibility artifact.
+- Open the diagnostics panel and copy the summary into notes.
 - Close and reopen the page to confirm the browser restores the last control state.
 
 ## Testing and CI
@@ -117,4 +119,4 @@ A GitHub Actions workflow runs syntax checks and a small Node-based physics test
 
 ## Portfolio framing
 
-The strongest story for admissions is not just that the simulation looks good. It is that the project makes numerical error, conservation behavior, and integrator tradeoffs visible in a controlled experiment environment. That lets the repository read as a compact piece of scientific software engineering rather than a visual toy.
+The strongest story for admissions is not just that the simulation looks good. It is that the project makes numerical error, conservation behavior, and integrator tradeoffs visible in a controlled experiment environment. The diagnostics layer now turns that into an immediate decision aid, so the repository reads as a compact piece of scientific software engineering rather than a visual toy.
