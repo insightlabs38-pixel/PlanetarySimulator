@@ -1,7 +1,6 @@
 (() => {
   'use strict';
 
-  const qs = (selector) => document.querySelector(selector);
   const get = (id) => document.getElementById(id);
 
   function createButton(id, label, className = '') {
@@ -13,7 +12,9 @@
   }
 
   function ensureBundleButton() {
-    if (get('exportBundle')) return get('exportBundle');
+    const existing = get('exportBundle');
+    if (existing) return existing;
+
     const actions = document.querySelector('.actions');
     if (!actions) return null;
 
@@ -122,13 +123,4 @@
       exportBundle();
     }
   });
-
-  const observer = new MutationObserver(() => {
-    const button = get('exportBundle');
-    if (button && button !== bundleButton) {
-      button.addEventListener('click', exportBundle);
-      observer.disconnect();
-    }
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
 })();
