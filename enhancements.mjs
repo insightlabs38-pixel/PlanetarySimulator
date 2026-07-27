@@ -29,50 +29,158 @@
     return button;
   }
 
-  function readControlState() {
-    const controlIds = [
-      'preset', 'integrator', 'collision', 'seed', 'g', 'dt', 'mass',
-      'trail', 'softening', 'zoom', 'adaptiveStrength'
+  function ensureDiagnosticsPanel() {
+    const existing = get('diagnosticsGroup');
+    if (existing) return existing;
+
+    const scroll = document.querySelector('.panel-scroll');
+    if (!scroll) return null;
+
+    const group = document.createElement('section');
+    group.className = 'group';
+    group.id = 'diagnosticsGroup';
+    group.innerHTML = `
+      <h2>Diagnostics</h2>
+      <div class="diagnostic-shell">
+        <div class="diagnostic-badges">
+          <div class="diagnostic-badge">Stability score <strong id="stabilityScore">—</strong></div>
+          <div class="diagnostic-badge">Risk level <strong id="stabilityLabel">—</strong></div>
+          <div class="diagnostic-badge">Benchmark leader <strong id="bestIntegrator">—</strong></div>
+        </div>
+        <div class="diagnostic-grid">
+          <div class="card diagnostic-card">
+            <span class="k">Verdict</span>
+            <span class="v" id="diagnosticVerdict">—</span>
+            <small id="diagnosticReason">—</small>
+          </div>
+          <div class="card diagnostic-card">
+            <span class="k">Action</span>
+            <span class="v" id="diagnosticAction">—</span>
+            <small id="diagnosticHint">—</small>
+          </div>
+        </div>
+        <button id="copyDiagnostics">Copy summary</button>
+      </div>
+    `;
+
+    const benchmarkGroup = get('benchmark')?.closest('.group');
+    if (benchmarkGroup?.parentElement === scroll) {
+      scroll.insertBefore(group, benchmarkGroup.nextSibling);
+    } else {
+      scroll.appendChild(group);
+    }
+    return group;
+  }
+
+  function parseNumeric(text) {
+    if (!text) return NaN;
+    const match = String(text).match(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/i);
+    return match ? Number(match[0]) : NaN;
+  }
+
+  function extractBestIntegrator(text) {
+    if (!text) return '—';
+    const patterns = [
+      /Best overall conservation in this run:\s*([^\n]+)/i,
+      /Best energy conservation:\s*([^\n]+)/i
     ];
+    for (const pattern of patterns) {
+      const match = String(text).match(pattern);
+      if (match?.[1]) return match[1].trim();
+    }
+    return '—';
+  }
 
-    const controls = Object.fromEntries(controlIds.map((id) => {
-      const element = get(id);
-      return [id, element ? element.value : null];
-    }));
+  function collectDiagnostics() {
+    const energyDrift = parseNumeric(get('energyOut')?.textContent) || 0;
+    const momentum = parseNumeric(get('momentumOut')?.textContent) || 0;
+    const angularMomentum = parseNumeric(get('angularOut')?.textContent) || 0;
+    const closestApproach = parseNumeric(get('closestOut')?.textContent) || 0;
+    const maxSpeed = parseNumeric(get('speedOut')?.textContent) || 0;
+    const timestep = parseNumeric(get('dtOut')?.textContent) || 0;
+    const softening = parseNumeric(get('softOut')?.textContent) || 0;
+    const benchmarkText = get('benchmarkOut')?.textContent || '';
+    const statusDetail = get('statusDetail')?.textContent || '';
+    const bestIntegrator = extractBestIntegrator(benchmarkText);
 
-    const toggles = Object.fromEntries(['adaptive', 'showTrails', 'showVectors', 'showLabels'].map((id) => {
-      const element = get(id);
-      return [id, element ? element.checked : null];
-    }));
+    const encounterRatio = softening > 0 ? closestApproach / softening : Infinity;
+    let score = 100;
+    score -= Math.min(energyDrift * 120, 60);
+    score -= Math.min(Math.log10(momentum + 10) * 6, 18);
+    score -= Number.isFinite(encounterRatio) ? Math.max(0, (1.8 - encounterRatio) * 15) : 0;
+    score -= Math.max(0, maxSpeed * timestep - 4) * 4;
+    score = Math.max(0, Math.min(100, Math.round(score)));
 
-    const toggle = get('toggle');
+    const label = score >= 85 ? 'Excellent' : score >= 70 ? 'Stable' : score >= 50 ? 'Watch' : 'Unstable';
+    const verdict = energyDrift < 0.01
+      ? 'Conservation is very tight.'
+      : energyDrift < 0.1
+        ? 'Conservation is acceptable.'
+        : 'Conservation is drifting.';
+
+    let action = 'No immediate adjustment needed.';
+    let hint = 'The current setup is well within a presentation-safe range.';
+
+    if (energyDrift > 0.1) {
+      action = 'Lower the timestep or use Verlet/RK4.';
+      hint = 'The current step size is the first parameter to tighten when drift rises.';
+    } else if (Number.isFinite(encounterRatio) && encounterRatio < 1.5) {
+      action = 'Increase softening or enable adaptive stepping.';
+      hint = 'The system is entering a close-encounter regime where substeps matter more.';
+    } else if (momentum > 1000) {
+      action = 'Inspect the initial conditions or collision mode.';
+      hint = 'Momentum is high enough that the run deserves a closer look before presenting.';
+    }
 
     return {
-      ...controls,
-      ...toggles,
-      running: toggle ? toggle.textContent.trim().toLowerCase() === 'pause' : null
+      score,
+      label,
+      verdict,
+      action,
+      hint,
+      bestIntegrator,
+      energyDrift,
+      momentum,
+      angularMomentum,
+      closestApproach,
+      maxSpeed,
+      timestep,
+      softening,
+      encounterRatio,
+      statusDetail
     };
   }
 
-  function readHudState() {
-    const fields = ['status', 'statusDetail', 'hudTime', 'energyOut', 'momentumOut', 'angularOut', 'comOut', 'closestOut', 'speedOut'];
-    return Object.fromEntries(fields.map((id) => {
-      const element = get(id);
-      return [id, element ? element.textContent : null];
-    }));
-  }
+  function renderDiagnostics() {
+    const panel = ensureDiagnosticsPanel();
+    if (!panel) return null;
 
-  function captureBundle() {
-    const canvas = get('space');
-    return {
-      schemaVersion: 1,
-      app: 'Orbital Lab',
-      createdAt: new Date().toISOString(),
-      userAgent: navigator.userAgent,
-      controls: readControlState(),
-      hud: readHudState(),
-      canvasDataUrl: canvas && typeof canvas.toDataURL === 'function' ? canvas.toDataURL('image/png') : null
-    };
+    const diagnostics = collectDiagnostics();
+    const scoreEl = get('stabilityScore');
+    const labelEl = get('stabilityLabel');
+    const bestEl = get('bestIntegrator');
+    const verdictEl = get('diagnosticVerdict');
+    const reasonEl = get('diagnosticReason');
+    const actionEl = get('diagnosticAction');
+    const hintEl = get('diagnosticHint');
+
+    if (scoreEl) scoreEl.textContent = String(diagnostics.score);
+    if (labelEl) labelEl.textContent = diagnostics.label;
+    if (bestEl) bestEl.textContent = diagnostics.bestIntegrator;
+    if (verdictEl) verdictEl.textContent = diagnostics.verdict;
+    if (reasonEl) {
+      reasonEl.textContent = [
+        `Drift ${diagnostics.energyDrift.toFixed(4)}%`,
+        `Momentum ${diagnostics.momentum.toFixed(2)}`,
+        `Closest approach ${diagnostics.closestApproach.toFixed(2)}`
+      ].join(' · ');
+    }
+    if (actionEl) actionEl.textContent = diagnostics.action;
+    if (hintEl) {
+      hintEl.textContent = `${diagnostics.hint}${diagnostics.statusDetail ? ` Current run: ${diagnostics.statusDetail}.` : ''}`;
+    }
+
+    return diagnostics;
   }
 
   function downloadJson(filename, payload) {
@@ -85,6 +193,44 @@
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+  }
+
+  function copyTextToClipboard(text) {
+    if (navigator.clipboard?.writeText) {
+      return navigator.clipboard.writeText(text).catch(() => false);
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', 'true');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+    } catch {
+      // Ignore clipboard failures.
+    }
+    textarea.remove();
+    return Promise.resolve(true);
+  }
+
+  function captureBundle() {
+    const canvas = get('space');
+    const diagnostics = collectDiagnostics();
+    return {
+      schemaVersion: 2,
+      app: 'Orbital Lab',
+      createdAt: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      controls: readControlState(),
+      hud: readHudState(),
+      diagnostics,
+      benchmarkReport: get('benchmarkOut')?.textContent || null,
+      simulationSnapshot: typeof window.__orbitalLab?.getSnapshot === 'function' ? window.__orbitalLab.getSnapshot() : null,
+      canvasDataUrl: canvas && typeof canvas.toDataURL === 'function' ? canvas.toDataURL('image/png') : null
+    };
   }
 
   function exportBundle() {
@@ -169,8 +315,28 @@
     return false;
   }
 
+  function copyDiagnostics() {
+    const diagnostics = renderDiagnostics();
+    if (!diagnostics) return;
+    const summary = [
+      `Orbital Lab diagnostics`,
+      `Stability score: ${diagnostics.score}/100 (${diagnostics.label})`,
+      `Verdict: ${diagnostics.verdict}`,
+      `Action: ${diagnostics.action}`,
+      `Hint: ${diagnostics.hint}`,
+      `Best integrator: ${diagnostics.bestIntegrator}`,
+      `Energy drift: ${diagnostics.energyDrift.toFixed(4)}%`,
+      `Momentum: ${diagnostics.momentum.toFixed(2)}`,
+      `Closest approach: ${diagnostics.closestApproach.toFixed(2)}`
+    ].join('\n');
+    void copyTextToClipboard(summary);
+  }
+
   const bundleButton = ensureBundleButton();
   if (bundleButton) bundleButton.addEventListener('click', exportBundle);
+
+  ensureDiagnosticsPanel();
+  renderDiagnostics();
 
   loadSession();
   persistSession();
@@ -182,8 +348,18 @@
     saveTimer = window.setTimeout(persistSession, 80);
   };
 
-  document.addEventListener('input', schedulePersist, true);
-  document.addEventListener('change', schedulePersist, true);
+  const scheduleDiagnostics = () => {
+    window.requestAnimationFrame(() => renderDiagnostics());
+  };
+
+  document.addEventListener('input', () => {
+    schedulePersist();
+    scheduleDiagnostics();
+  }, true);
+  document.addEventListener('change', () => {
+    schedulePersist();
+    scheduleDiagnostics();
+  }, true);
   window.addEventListener('beforeunload', persistSession);
 
   document.addEventListener('visibilitychange', () => {
@@ -211,4 +387,9 @@
       clearSavedSession();
     }
   });
+
+  const copyButton = get('copyDiagnostics');
+  if (copyButton) copyButton.addEventListener('click', copyDiagnostics);
+
+  setInterval(renderDiagnostics, 1000);
 })();
