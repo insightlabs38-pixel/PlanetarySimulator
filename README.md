@@ -1,4 +1,4 @@
-# PlanetarySimulator — Orbital Lab
+# PlanetarySimulator 
 
 ![CI](https://github.com/insightlabs38-pixel/PlanetarySimulator/actions/workflows/ci.yml/badge.svg?branch=main)
 ![GitHub top language](https://img.shields.io/github/languages/top/insightlabs38-pixel/PlanetarySimulator)
@@ -7,7 +7,7 @@
 ![GitHub last commit](https://img.shields.io/github/last-commit/insightlabs38-pixel/PlanetarySimulator/main)
 ![GitHub stars](https://img.shields.io/github/stars/insightlabs38-pixel/PlanetarySimulator?style=social)
 
-Orbital Lab is an interactive 2D N-body gravity simulator built as a computational-physics portfolio project.
+PlanetarySImulator is an interactive 2D N-body gravity simulator built as a computational-physics portfolio project.
 
 The current codebase is organized around three goals:
 
@@ -156,7 +156,7 @@ python3 -m http.server
 
 A GitHub Actions workflow runs syntax checks and a Node-based physics test suite on every push and pull request. The tests cover deterministic seeded presets, orbital-element calculations, integrator paths, benchmark reporting, compensated-summation bookkeeping, and the backend fallback path.
 
-## Information for Faculty Reviewers & Admissions Committees
+## Information for Reviewers
 
 The repository’s mathematical core is concentrated in `physics-core-advanced.mjs` and `physics-core-precision.mjs`.
 
@@ -173,7 +173,3 @@ The design choice is to keep the numerical story legible: the code shows where c
 ## Validation notes
 
 The browser runtime is JavaScript-first, with WebGPU, WASM, and worker acceleration treated as optional enhancements. The application continues to function when those capabilities are unavailable, and the UI surfaces the current backend state rather than silently failing.
-
-## Portfolio framing
-
-The strongest story for admissions is not just that the simulation looks good. It is that the project makes numerical error, conservation behavior, integrator tradeoffs, reproducible experiment design, and fallback engineering visible in a controlled scientific environment.
