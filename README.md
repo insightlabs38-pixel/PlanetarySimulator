@@ -81,20 +81,27 @@ The current codebase is organized around three goals:
   - WASM detection with JavaScript fallback
   - Worker detection with main-thread fallback
 
+## Quick verification run
+
+Use **Verify Numerical Convergence** to run a short benchmark over the current initial conditions. The report compares Euler, Velocity Verlet, Yoshida 4, and IAS15 on the same 10-second window and prints the final global energy drift for each method.
+
 ## Project structure
 
 ```text
 PlanetarySimulator/
-├── index.html               # UI shell
-├── styles-v2.css            # Visual system
-├── physics-globals.js       # Global Body shim for the browser module runtime
-├── sim.js                   # Legacy entrypoint that loads the module runtime
-├── sim-advanced.mjs         # Advanced browser runtime and simulation controller
-├── enhancements.mjs         # Reproducibility, session persistence, diagnostics, and shortcut overlay
-├── presentation-boost.mjs   # Presentation mode and run briefs
+├── index.html                # UI shell
+├── styles-v2.css             # Visual system
+├── physics-globals.js        # Global Body shim for the browser module runtime
+├── sim.js                    # Legacy entrypoint that loads the module runtime
+├── sim-advanced.mjs          # Advanced browser runtime and simulation controller
+├── enhancements.mjs          # Reproducibility, session persistence, diagnostics, and shortcut overlay
+├── presentation-boost.mjs    # Presentation mode and run briefs
 ├── physics-core-advanced.mjs # Advanced physics, integrators, force models, benchmark utilities
-├── research-features.mjs    # Research overlay, replication presets, and fallback notices
-├── ui-polish.mjs            # HUD label polish for advanced solver names
+├── physics-core-precision.mjs # Compensated-summation wrapper and verification helpers
+├── webgpu-backend.mjs        # Isolated WebGPU bootstrap and WGSL compute source
+├── research-features.mjs     # Research overlay, replication presets, and fallback notices
+├── ui-polish.mjs             # HUD label polish for advanced solver names
+├── final-optimizations.mjs    # Worker-backed analysis, convergence verification, faculty guide
 ├── tests/
 │   └── physics.test.mjs
 └── .github/
@@ -132,6 +139,7 @@ python3 -m http.server
 - Run the benchmark and inspect the generated report.
 - Use the resonant preset and inspect the resonance display.
 - Open the research overlay and compare the replication presets.
+- Use **Verify Numerical Convergence** and compare the final energy drift across Euler, Verlet, Yoshida 4, and IAS15.
 - Export CSV telemetry and inspect the numbers outside the browser.
 - Export a bundle and import it again.
 - Open the diagnostics panel and copy the summary into notes.
@@ -139,12 +147,26 @@ python3 -m http.server
 
 ## Testing and CI
 
-A GitHub Actions workflow runs syntax checks and a Node-based physics test suite on every push and pull request. The tests cover deterministic seeded presets, orbital-element calculations, integrator paths, benchmark reporting, and the new advanced solver names.
+A GitHub Actions workflow runs syntax checks and a Node-based physics test suite on every push and pull request. The tests cover deterministic seeded presets, orbital-element calculations, integrator paths, benchmark reporting, compensated-summation bookkeeping, and the backend fallback path.
+
+## Information for Faculty Reviewers & Admissions Committees
+
+The repository’s mathematical core is concentrated in `physics-core-advanced.mjs` and `physics-core-precision.mjs`.
+
+- `physics-core-advanced.mjs`: pairwise Newtonian force model, Barnes–Hut fallback, perturbation models, and the main integrator dispatch.
+- `physics-core-advanced.mjs` `YOSHIDA_*` constants and `yoshida4Step`: 4th-order symplectic composition coefficients.
+- `physics-core-advanced.mjs` `modifiedMidpoint`, `bulirschStoerStep`, and `stepSystem` dispatch for `ias15`: high-accuracy baseline path.
+- `physics-core-advanced.mjs` `maybeRegularizeCloseEncounter` and `solveKeplerUniversal`: near-encounter fallback regularization path.
+- `physics-core-precision.mjs`: compensated-summation wrapper and low-order-bit bookkeeping for x/y updates.
+- `webgpu-backend.mjs`: isolated WGSL compute source and guarded WebGPU bootstrap with secure-context fallback handling.
+- `final-optimizations.mjs`: worker-backed MEGNO / Poincaré-style analysis, convergence verification, and the reviewer guide.
+
+The design choice is to keep the numerical story legible: the code shows where conservation is exact, where it is approximate, and where the app intentionally falls back to a safer path.
 
 ## Validation notes
 
-The repository is wired for graceful fallback when WebGPU, WASM, or workers are unavailable. The browser runtime is still JavaScript-first, so those capabilities improve the experience when present but do not gate the simulator itself.
+The browser runtime is JavaScript-first, with WebGPU, WASM, and worker acceleration treated as optional enhancements. The application continues to function when those capabilities are unavailable, and the UI surfaces the current backend state rather than silently failing.
 
 ## Portfolio framing
 
-The strongest story for admissions is not just that the simulation looks good. It is that the project makes numerical error, conservation behavior, integrator tradeoffs, and reproducible experiment design visible in a controlled scientific environment.
+The strongest story for admissions is not just that the simulation looks good. It is that the project makes numerical error, conservation behavior, integrator tradeoffs, reproducible experiment design, and fallback engineering visible in a controlled scientific environment.
