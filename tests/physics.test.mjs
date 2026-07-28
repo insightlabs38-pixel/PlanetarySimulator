@@ -10,11 +10,13 @@ import {
   computeSystemOrbitalAnalytics,
   computeTotalEnergy,
   createSeededRng,
+  getPrecisionSummary,
   orbitalElements,
   recommendedSubsteps,
   stepSystem,
   summarizeBenchmark
-} from '../physics-core-advanced.mjs';
+} from '../physics-core-precision.mjs';
+import { bootstrapAccelerationBackend } from '../webgpu-backend.mjs';
 
 const rngA = createSeededRng('repeatable');
 const rngB = createSeededRng('repeatable');
@@ -65,6 +67,7 @@ const closeRegularized = [
 ];
 stepSystem(closeRegularized, { integrator: 'yoshida4', dt: 0.01, G: 1, collision: 'none', regularization: true });
 assert.ok(closeRegularized.every((body) => Number.isFinite(body.x) && Number.isFinite(body.y) && Number.isFinite(body.vx) && Number.isFinite(body.vy)));
+assert.ok(getPrecisionSummary(closeRegularized[0]));
 
 const manyBodies = buildPreset('chaos', { seed: 'barnes-hut', G: 1, centralMass: 9000 });
 for (let i = 0; i < 20; i++) {
@@ -137,5 +140,9 @@ assert.ok(benchmark.some((row) => row.integrator === 'ias15'));
 assert.ok(benchmark.some((row) => row.integrator === 'barnes-hut'));
 assert.ok(benchmark.every((row) => typeof row.runtimeMs === 'number'));
 assert.match(summarizeBenchmark(benchmark), /Integrator benchmark summary/);
+
+const backend = await bootstrapAccelerationBackend();
+assert.ok(backend);
+assert.ok(['wasm', 'webgpu'].includes(backend.kind));
 
 console.log('advanced physics tests passed');
