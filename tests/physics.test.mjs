@@ -45,19 +45,26 @@ const system = [
   new Body(0, 0, 0, 0, 10000, 18, '#fff', true, 'Star', 'star'),
   new Body(200, 0, 0, Math.sqrt(10010 / 200), 10, 5, '#6fb8ff', false, 'Planet', 'planet')
 ];
-const e0 = computeTotalEnergy(system, { G: 1, softening: 0.1 });
-for (const integrator of ['euler', 'symplectic', 'verlet', 'rk4', 'rk45']) {
+const e0 = computeTotalEnergy(system, { G: 1 });
+for (const integrator of ['euler', 'symplectic', 'verlet', 'yoshida4', 'rk4', 'rk45', 'ias15']) {
   const bodies = system.map((b) => new Body(b.x, b.y, b.vx, b.vy, b.mass, b.radius, b.color, b.fixed, b.label, b.type));
   const stats = {};
   for (let i = 0; i < 120; i++) {
-    stepSystem(bodies, { integrator, dt: 0.02, G: 1, softening: 0.1, collision: 'none', stats });
+    stepSystem(bodies, { integrator, dt: 0.02, G: 1, collision: 'none', stats, regularization: true });
   }
-  const e1 = computeTotalEnergy(bodies, { G: 1, softening: 0.1 });
+  const e1 = computeTotalEnergy(bodies, { G: 1 });
   assert.ok(Number.isFinite(e1));
   assert.ok(Number.isFinite(stats.maxError ?? 0));
   assert.ok((stats.acceptedSteps ?? 0) >= 1);
   assert.ok(Number.isFinite((e1 - e0) / e0));
 }
+
+const closeRegularized = [
+  new Body(0, 0, 0, 0, 60, 4, '#fff', false, 'A', 'planet'),
+  new Body(0.2, 0, 0, 0.1, 40, 4, '#6fb8ff', false, 'B', 'planet')
+];
+stepSystem(closeRegularized, { integrator: 'yoshida4', dt: 0.01, G: 1, collision: 'none', regularization: true });
+assert.ok(closeRegularized.every((body) => Number.isFinite(body.x) && Number.isFinite(body.y) && Number.isFinite(body.vx) && Number.isFinite(body.vy)));
 
 const manyBodies = buildPreset('chaos', { seed: 'barnes-hut', G: 1, centralMass: 9000 });
 for (let i = 0; i < 20; i++) {
@@ -65,19 +72,18 @@ for (let i = 0; i < 20; i++) {
     integrator: 'barnes-hut',
     dt: 0.01,
     G: 1,
-    softening: 2,
     collision: 'none',
-    forceModel: { j2Enabled: false, dragEnabled: false, radiationEnabled: false, postNewtonianEnabled: false }
+    forceModel: { j2Enabled: false, dragEnabled: false, radiationEnabled: false, postNewtonianEnabled: false },
+    regularization: true
   });
 }
-assert.ok(Number.isFinite(computeTotalEnergy(manyBodies, { G: 1, softening: 2 })));
+assert.ok(Number.isFinite(computeTotalEnergy(manyBodies, { G: 1 })));
 
 const perturbed = buildPreset('default', { G: 1, centralMass: 9000 });
 stepSystem(perturbed, {
   integrator: 'rk45',
   dt: 0.02,
   G: 1,
-  softening: 25,
   collision: 'none',
   forceModel: {
     j2Enabled: true,
@@ -91,7 +97,8 @@ stepSystem(perturbed, {
     radiationStrength: 0.0001,
     postNewtonianEnabled: true,
     postNewtonianStrength: 0.0001
-  }
+  },
+  regularization: true
 });
 assert.ok(perturbed.every((body) => Number.isFinite(body.x) && Number.isFinite(body.y) && Number.isFinite(body.vx) && Number.isFinite(body.vy)));
 
@@ -115,16 +122,18 @@ const widePair = [
   new Body(0, 0, 0, 0, 5, 3, '#fff', false, 'A', 'planet'),
   new Body(50, 0, 0, 0, 5, 3, '#6fb8ff', false, 'B', 'planet')
 ];
-assert.ok(recommendedSubsteps(closePair, { dt: 0.08, softening: 2 }) >= recommendedSubsteps(widePair, { dt: 0.08, softening: 2 }));
+assert.ok(recommendedSubsteps(closePair, { dt: 0.08, regularizationRadius: 2 }) >= recommendedSubsteps(widePair, { dt: 0.08, regularizationRadius: 2 }));
 
 const analytics = computeSystemOrbitalAnalytics(system, { G: 1, referenceMode: 'primary' });
 assert.ok(Array.isArray(analytics));
 assert.ok(analytics.some((row) => row && row.resonanceRatio));
 
-const benchmark = benchmarkIntegrators(system, { steps: 20, dt: 0.02, G: 1, softening: 0.1 });
-assert.ok(benchmark.length >= 5);
+const benchmark = benchmarkIntegrators(system, { steps: 20, dt: 0.02, G: 1 });
+assert.ok(benchmark.length >= 7);
 assert.ok(benchmark.some((row) => row.integrator === 'rk4'));
 assert.ok(benchmark.some((row) => row.integrator === 'rk45'));
+assert.ok(benchmark.some((row) => row.integrator === 'yoshida4'));
+assert.ok(benchmark.some((row) => row.integrator === 'ias15'));
 assert.ok(benchmark.some((row) => row.integrator === 'barnes-hut'));
 assert.ok(benchmark.every((row) => typeof row.runtimeMs === 'number'));
 assert.match(summarizeBenchmark(benchmark), /Integrator benchmark summary/);
