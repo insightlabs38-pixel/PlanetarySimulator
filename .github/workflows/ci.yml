@@ -19,8 +19,13 @@ jobs:
           node --check sim.mjs
           node --check physics-core.mjs
           node --check physics-core-advanced.mjs
+          node --check physics-core-precision.mjs
+          node --check webgpu-backend.mjs
+          node --check final-optimizations.mjs
           node --check physics-globals.js
           node --check enhancements.mjs
           node --check presentation-boost.mjs
+          node --check research-features.mjs
+          node --check ui-polish.mjs
       - name: Physics tests
         run: node tests/physics.test.mjs
