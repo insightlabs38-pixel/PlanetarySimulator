@@ -65,13 +65,26 @@ import { bootstrapAccelerationBackend } from './webgpu-backend.mjs';
         <div class="card"><span class="k">Poincaré</span><span class="v" id="poincareFinalOut">—</span><small>Worker-processed section count</small></div>
         <div class="card"><span class="k">Round-off</span><span class="v" id="roundoffOut">—</span><small>Compensation residuals</small></div>
       </div>
-      <pre id="verificationOut" class="report" style="margin-top:10px">Press “Verify Numerical Convergence” to compare Euler, Verlet, Yoshida 4, and IAS15 over a 10-second window.</pre>
+      <pre id="verificationOut" class="report" style="margin-top:10px">Press “Verify Numerical Convergence” to compare Euler, Velocity Verlet, Yoshida 4, and IAS15 over a 10-second window.</pre>
     `;
 
     const benchmarkGroup = get('benchmarkOut')?.closest('.group');
     if (benchmarkGroup?.parentElement === scroll) scroll.insertBefore(section, benchmarkGroup.nextSibling);
     else scroll.appendChild(section);
     return section;
+  }
+
+  function annotateShortcutOverlay() {
+    const overlay = get('shortcutOverlay');
+    if (!overlay || overlay.dataset.ias15Annotated === '1') return;
+    const card = [...overlay.querySelectorAll('.shortcut-card')].find((node) => /Physics study/i.test(node.textContent || ''));
+    if (card) {
+      const note = document.createElement('p');
+      note.className = 'mini';
+      note.textContent = 'IAS15-style baseline uses adaptive Gauss-Radau quadrature with a very tight local truncation threshold; the compare mode is meant as the high-accuracy reference.';
+      card.appendChild(note);
+      overlay.dataset.ias15Annotated = '1';
+    }
   }
 
   async function updateBackendStatus() {
@@ -210,17 +223,17 @@ import { bootstrapAccelerationBackend } from './webgpu-backend.mjs';
     renderVerificationResults(results);
   }
 
-  function injectButtonHandlers(section) {
+  function injectButtonHandlers() {
     const verifyButton = get('verifyConvergence');
     if (verifyButton) verifyButton.addEventListener('click', runQuickVerification);
     const legacyButton = get('helpToggle');
-    if (legacyButton) {
+    if (legacyButton && !get('verifyConvergenceInline')) {
       legacyButton.insertAdjacentHTML('afterend', '<button id="verifyConvergenceInline" type="button">Verify Numerical Convergence</button>');
       get('verifyConvergenceInline')?.addEventListener('click', runQuickVerification);
     }
   }
 
-  function updateFacultyGuide(section) {
+  function updateFacultyGuide() {
     const scroll = document.querySelector('.panel-scroll');
     if (!scroll || get('facultyGuideGroup')) return;
     const guide = document.createElement('section');
@@ -240,6 +253,7 @@ import { bootstrapAccelerationBackend } from './webgpu-backend.mjs';
     const section = ensurePanel();
     updateFacultyGuide(section);
     injectButtonHandlers(section);
+    annotateShortcutOverlay();
     await updateBackendStatus();
     updateWorkerMetrics();
     window.setInterval(updateWorkerMetrics, 1200);
