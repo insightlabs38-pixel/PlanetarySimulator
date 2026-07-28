@@ -5,6 +5,10 @@ export class Body {
 }
 
 const COLORS = ['#ff6b6b', '#ffd166', '#06d6a0', '#4cc9f0', '#f72585', '#b8f2e6', '#c77dff'];
+const YOSHIDA_W1 = 1 / (2 - 2 ** (1 / 3));
+const YOSHIDA_W0 = -(2 ** (1 / 3)) / (2 - 2 ** (1 / 3));
+const YOSHIDA_C = [YOSHIDA_W1 / 2, (YOSHIDA_W0 + YOSHIDA_W1) / 2, (YOSHIDA_W0 + YOSHIDA_W1) / 2, YOSHIDA_W1 / 2];
+const YOSHIDA_D = [YOSHIDA_W1, YOSHIDA_W0, YOSHIDA_W1];
 
 function xmur3(str) {
   let h = 1779033703 ^ str.length;
@@ -36,33 +40,11 @@ export function cloneBodies(bodies) {
   return bodies.map((body) => new Body(body.x, body.y, body.vx, body.vy, body.mass, body.radius, body.color, !!body.fixed, body.label || '', body.type || 'body'));
 }
 
-function makeOrbitingBody({
-  r,
-  angle,
-  mass,
-  radius,
-  color,
-  centralMass,
-  G,
-  tangential = 1,
-  label = 'Body',
-  type = 'planet'
-}) {
+function makeOrbitingBody({ r, angle, mass, radius, color, centralMass, G, tangential = 1, label = 'Body', type = 'planet' }) {
   const x = Math.cos(angle) * r;
   const y = Math.sin(angle) * r;
   const v = Math.sqrt((G * centralMass) / Math.max(r, 1));
-  return new Body(
-    x,
-    y,
-    -Math.sin(angle) * v * tangential,
-    Math.cos(angle) * v * tangential,
-    mass,
-    radius,
-    color,
-    false,
-    label,
-    type
-  );
+  return new Body(x, y, -Math.sin(angle) * v * tangential, Math.cos(angle) * v * tangential, mass, radius, color, false, label, type);
 }
 
 function defaultPreset(centralMass) {
@@ -180,11 +162,11 @@ function primaryBody(bodies) {
   return bodies.find((b) => b.fixed) || [...bodies].sort((a, b) => b.mass - a.mass)[0] || null;
 }
 
-function softDistanceSquared(dx, dy, softening) {
-  return dx * dx + dy * dy + softening * softening;
+function dist2(dx, dy) {
+  return dx * dx + dy * dy;
 }
 
-function pairwiseAccelerations(bodies, { G = 1, softening = 25 } = {}) {
+function pairwiseAccelerations(bodies, { G = 1 } = {}) {
   const acc = bodies.map(() => ({ x: 0, y: 0 }));
   for (let i = 0; i < bodies.length; i++) {
     for (let j = i + 1; j < bodies.length; j++) {
@@ -192,9 +174,9 @@ function pairwiseAccelerations(bodies, { G = 1, softening = 25 } = {}) {
       const b = bodies[j];
       const dx = b.x - a.x;
       const dy = b.y - a.y;
-      const d2 = softDistanceSquared(dx, dy, softening);
-      const d = Math.sqrt(d2);
-      const scale = G / (d2 * d);
+      const r2 = Math.max(dist2(dx, dy), 1e-24);
+      const invR = 1 / Math.sqrt(r2);
+      const scale = G * invR / r2;
       if (!a.fixed) { acc[i].x += scale * b.mass * dx; acc[i].y += scale * b.mass * dy; }
       if (!b.fixed) { acc[j].x -= scale * a.mass * dx; acc[j].y -= scale * a.mass * dy; }
     }
@@ -205,41 +187,16 @@ function pairwiseAccelerations(bodies, { G = 1, softening = 25 } = {}) {
 function buildBarnesHutTree(bodies) {
   if (!bodies.length) return null;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const b of bodies) {
-    minX = Math.min(minX, b.x); minY = Math.min(minY, b.y);
-    maxX = Math.max(maxX, b.x); maxY = Math.max(maxY, b.y);
-  }
+  for (const b of bodies) { minX = Math.min(minX, b.x); minY = Math.min(minY, b.y); maxX = Math.max(maxX, b.x); maxY = Math.max(maxY, b.y); }
   const span = Math.max(maxX - minX, maxY - minY, 1);
   const half = span / 2 + 1e-6;
   const root = { x: (minX + maxX) / 2, y: (minY + maxY) / 2, half, mass: 0, comX: 0, comY: 0, body: null, children: null };
-
   const quadIndex = (node, b) => (b.y >= node.y ? 2 : 0) + (b.x >= node.x ? 1 : 0);
-  const makeChild = (node, q) => ({
-    x: node.x + (q % 2 ? 0.5 : -0.5) * node.half,
-    y: node.y + (q < 2 ? -0.5 : 0.5) * node.half,
-    half: node.half / 2,
-    mass: 0,
-    comX: 0,
-    comY: 0,
-    body: null,
-    children: null
-  });
-
+  const makeChild = (node, q) => ({ x: node.x + (q % 2 ? 0.5 : -0.5) * node.half, y: node.y + (q < 2 ? -0.5 : 0.5) * node.half, half: node.half / 2, mass: 0, comX: 0, comY: 0, body: null, children: null });
   const insert = (node, idx) => {
     const b = bodies[idx];
-    if (node.body == null && !node.children) {
-      node.body = idx;
-      node.mass = b.mass;
-      node.comX = b.x;
-      node.comY = b.y;
-      return;
-    }
-    if (!node.children) {
-      node.children = Array.from({ length: 4 }, (_, q) => makeChild(node, q));
-      const old = node.body;
-      node.body = null;
-      if (old != null) insert(node, old);
-    }
+    if (node.body == null && !node.children) { node.body = idx; node.mass = b.mass; node.comX = b.x; node.comY = b.y; return; }
+    if (!node.children) { node.children = Array.from({ length: 4 }, (_, q) => makeChild(node, q)); const old = node.body; node.body = null; if (old != null) insert(node, old); }
     const q = quadIndex(node, b);
     insert(node.children[q], idx);
     const total = node.mass + b.mass;
@@ -247,7 +204,6 @@ function buildBarnesHutTree(bodies) {
     node.comY = (node.comY * node.mass + b.mass * b.y) / total;
     node.mass = total;
   };
-
   for (let i = 0; i < bodies.length; i++) insert(root, i);
   return root;
 }
@@ -257,11 +213,11 @@ function accelFromNode(body, node, options, theta, skipIndex) {
   if (!node.children && node.body === skipIndex) return { x: 0, y: 0 };
   const dx = node.comX - body.x;
   const dy = node.comY - body.y;
-  const d2 = softDistanceSquared(dx, dy, options.softening);
-  const d = Math.sqrt(d2);
-  if (!node.children || (node.half * 2) / Math.max(d, 1e-9) < theta) {
+  const r2 = Math.max(dist2(dx, dy), 1e-24);
+  const r = Math.sqrt(r2);
+  if (!node.children || (node.half * 2) / Math.max(r, 1e-12) < theta) {
     if (!node.children && node.body === skipIndex) return { x: 0, y: 0 };
-    const scale = options.G * node.mass / (d2 * d);
+    const scale = options.G * node.mass / (r2 * r);
     return body.fixed ? { x: 0, y: 0 } : { x: scale * dx, y: scale * dy };
   }
   let ax = 0, ay = 0;
@@ -284,14 +240,14 @@ function centralPerturbations(body, primary, options) {
   if (!primary) return acc;
   const dx = body.x - primary.x;
   const dy = body.y - primary.y;
-  const r2 = Math.max(dx * dx + dy * dy, 1e-9);
+  const r2 = Math.max(dx * dx + dy * dy, 1e-24);
   const r = Math.sqrt(r2);
   const mu = options.G * (primary.mass || 1);
 
   if (cfg.j2Enabled && cfg.j2Strength) {
     const R = cfg.j2Radius || (primary.radius || 18);
     const radial = -mu / (r2 * r) * (1 - 1.5 * cfg.j2Strength * (R * R / r2));
-    const base = radial / Math.max(r, 1e-9);
+    const base = radial / Math.max(r, 1e-12);
     acc.x += base * dx;
     acc.y += base * dy;
   }
@@ -306,7 +262,7 @@ function centralPerturbations(body, primary, options) {
     const rho = density0 * Math.exp(-Math.max(0, r - (cfg.dragReferenceRadius || primary.radius || 18)) / Math.max(scaleHeight, 1));
     const relVx = body.vx - (primary.vx || 0);
     const relVy = body.vy - (primary.vy || 0);
-    const speed = Math.hypot(relVx, relVy) || 1e-9;
+    const speed = Math.hypot(relVx, relVy) || 1e-12;
     const drag = -cfg.dragStrength * rho * speed;
     acc.x += drag * relVx;
     acc.y += drag * relVy;
@@ -342,13 +298,13 @@ export function computeAccelerations(bodies, options = {}) {
   return acc;
 }
 
-export function computeTotalEnergy(bodies, { G = 1, softening = 25 } = {}) {
+export function computeTotalEnergy(bodies, { G = 1 } = {}) {
   let total = 0;
   for (const b of bodies) total += 0.5 * b.mass * (b.vx * b.vx + b.vy * b.vy);
   for (let i = 0; i < bodies.length; i++) {
     for (let j = i + 1; j < bodies.length; j++) {
       const a = bodies[i], b = bodies[j];
-      const d = Math.sqrt(softDistanceSquared(b.x - a.x, b.y - a.y, softening));
+      const d = Math.max(Math.hypot(b.x - a.x, b.y - a.y), 1e-12);
       total -= (G * a.mass * b.mass) / d;
     }
   }
@@ -367,11 +323,7 @@ export function computeAngularMomentum(bodies) {
 
 export function computeCenterOfMass(bodies) {
   const totalMass = bodies.reduce((sum, body) => sum + body.mass, 0) || 1;
-  return {
-    x: bodies.reduce((sum, body) => sum + body.mass * body.x, 0) / totalMass,
-    y: bodies.reduce((sum, body) => sum + body.mass * body.y, 0) / totalMass,
-    totalMass
-  };
+  return { x: bodies.reduce((sum, body) => sum + body.mass * body.x, 0) / totalMass, y: bodies.reduce((sum, body) => sum + body.mass * body.y, 0) / totalMass, totalMass };
 }
 
 export function computeClosestApproach(bodies) {
@@ -393,15 +345,15 @@ export function orbitalElements(body, primary, { G = 1 } = {}) {
   const v2 = dvx * dvx + dvy * dvy;
   const mu = G * (body.mass + primary.mass);
   const h = dx * dvy - dy * dvx;
-  const specificEnergy = 0.5 * v2 - mu / Math.max(r, 1e-9);
-  const ex = (dvy * h) / mu - dx / Math.max(r, 1e-9);
-  const ey = (-dvx * h) / mu - dy / Math.max(r, 1e-9);
+  const specificEnergy = 0.5 * v2 - mu / Math.max(r, 1e-12);
+  const ex = (dvy * h) / mu - dx / Math.max(r, 1e-12);
+  const ey = (-dvx * h) / mu - dy / Math.max(r, 1e-12);
   const eccentricity = Math.hypot(ex, ey);
   const semiMajorAxis = specificEnergy < 0 ? -mu / (2 * specificEnergy) : Infinity;
   const orbitalPeriod = specificEnergy < 0 ? 2 * Math.PI * Math.sqrt((semiMajorAxis ** 3) / mu) : Infinity;
   const periapsis = Number.isFinite(semiMajorAxis) ? semiMajorAxis * (1 - eccentricity) : Infinity;
   const apoapsis = Number.isFinite(semiMajorAxis) ? semiMajorAxis * (1 + eccentricity) : Infinity;
-  const escapeSpeed = Math.sqrt((2 * mu) / Math.max(r, 1e-9));
+  const escapeSpeed = Math.sqrt((2 * mu) / Math.max(r, 1e-12));
   const periapsisAngle = Math.atan2(ey, ex);
   return { r, v: Math.sqrt(v2), specificEnergy, eccentricity, semiMajorAxis, orbitalPeriod, periapsis, apoapsis, escapeSpeed, periapsisAngle, meanMotion: Number.isFinite(orbitalPeriod) && orbitalPeriod > 0 ? (2 * Math.PI) / orbitalPeriod : 0 };
 }
@@ -456,13 +408,7 @@ function derivatives(snapshot, options) {
 }
 
 function shifted(snapshot, delta, scale) {
-  return snapshot.map((body, i) => body.fixed ? { ...body } : {
-    ...body,
-    x: body.x + delta[i].x * scale,
-    y: body.y + delta[i].y * scale,
-    vx: body.vx + delta[i].vx * scale,
-    vy: body.vy + delta[i].vy * scale
-  });
+  return snapshot.map((body, i) => body.fixed ? { ...body } : ({ ...body, x: body.x + delta[i].x * scale, y: body.y + delta[i].y * scale, vx: body.vx + delta[i].vx * scale, vy: body.vy + delta[i].vy * scale }));
 }
 
 function eulerStep(bodies, dt, options) {
@@ -507,18 +453,34 @@ function verletStep(bodies, dt, options) {
   }
 }
 
+function yoshida4Step(bodies, dt, options) {
+  for (let i = 0; i < 4; i++) {
+    const kick = YOSHIDA_C[i];
+    if (kick) {
+      const acc = computeAccelerations(bodies, options);
+      for (let b = 0; b < bodies.length; b++) {
+        if (bodies[b].fixed) continue;
+        bodies[b].vx += acc[b].x * (kick * dt);
+        bodies[b].vy += acc[b].y * (kick * dt);
+      }
+    }
+    if (i < 3) {
+      const drift = YOSHIDA_D[i];
+      for (const body of bodies) {
+        if (body.fixed) continue;
+        body.x += body.vx * (drift * dt);
+        body.y += body.vy * (drift * dt);
+      }
+    }
+  }
+}
+
 function rk4StepSnapshot(snapshot, dt, options) {
   const k1 = derivatives(snapshot, options);
   const k2 = derivatives(shifted(snapshot, k1, dt / 2), options);
   const k3 = derivatives(shifted(snapshot, k2, dt / 2), options);
   const k4 = derivatives(shifted(snapshot, k3, dt), options);
-  return snapshot.map((body, i) => body.fixed ? { ...body } : {
-    ...body,
-    x: body.x + ((k1[i].x + 2 * k2[i].x + 2 * k3[i].x + k4[i].x) * dt) / 6,
-    y: body.y + ((k1[i].y + 2 * k2[i].y + 2 * k3[i].y + k4[i].y) * dt) / 6,
-    vx: body.vx + ((k1[i].vx + 2 * k2[i].vx + 2 * k3[i].vx + k4[i].vx) * dt) / 6,
-    vy: body.vy + ((k1[i].vy + 2 * k2[i].vy + 2 * k3[i].vy + k4[i].vy) * dt) / 6
-  });
+  return snapshot.map((body, i) => body.fixed ? { ...body } : ({ ...body, x: body.x + ((k1[i].x + 2 * k2[i].x + 2 * k3[i].x + k4[i].x) * dt) / 6, y: body.y + ((k1[i].y + 2 * k2[i].y + 2 * k3[i].y + k4[i].y) * dt) / 6, vx: body.vx + ((k1[i].vx + 2 * k2[i].vx + 2 * k3[i].vx + k4[i].vx) * dt) / 6, vy: body.vy + ((k1[i].vy + 2 * k2[i].vy + 2 * k3[i].vy + k4[i].vy) * dt) / 6 }));
 }
 
 function errorEstimate(a, b) {
@@ -535,7 +497,7 @@ function errorEstimate(a, b) {
 }
 
 function adaptiveRk4Step(bodies, dt, options, stats) {
-  const tol = options.adaptiveTolerance ?? 1e-4;
+  const tol = options.adaptiveTolerance ?? 1e-5;
   const minStep = options.minAdaptiveDt ?? dt / 1024;
   let remaining = dt;
   let step = dt;
@@ -543,18 +505,13 @@ function adaptiveRk4Step(bodies, dt, options, stats) {
   let rejected = 0;
   const history = [];
   const state = snapshotBodies(bodies);
-
-  while (remaining > 1e-12 && accepted + rejected < 1024) {
+  while (remaining > 1e-12 && accepted + rejected < 4096) {
     step = Math.min(step, remaining);
     const full = rk4StepSnapshot(state, step, options);
     const half = rk4StepSnapshot(state, step / 2, options);
     const half2 = rk4StepSnapshot(half, step / 2, options);
     const err = errorEstimate(full, half2);
-    if (err > tol && step > minStep) {
-      step *= 0.5;
-      rejected++;
-      continue;
-    }
+    if (err > tol && step > minStep) { step *= 0.5; rejected++; continue; }
     state.splice(0, state.length, ...half2);
     remaining -= step;
     accepted++;
@@ -562,7 +519,6 @@ function adaptiveRk4Step(bodies, dt, options, stats) {
     if (err < tol * 0.125) step *= 1.6;
     else if (err > tol * 0.6) step *= 0.85;
   }
-
   commitSnapshot(bodies, state);
   stats.acceptedSteps = accepted;
   stats.rejectedSteps = rejected;
@@ -570,6 +526,152 @@ function adaptiveRk4Step(bodies, dt, options, stats) {
   stats.maxError = history.reduce((m, e) => Math.max(m, e.error), 0);
   stats.meanSubstep = history.length ? history.reduce((s, e) => s + e.dt, 0) / history.length : dt;
   stats.stepHistory = history;
+}
+
+function modifiedMidpoint(snapshot, n, h, options) {
+  let y0 = snapshot.map((b) => ({ ...b }));
+  let y1 = derivatives(y0, options);
+  for (let i = 0; i < y0.length; i++) {
+    if (y0[i].fixed) continue;
+    y0[i].x += h * y1[i].x;
+    y0[i].y += h * y1[i].y;
+    y0[i].vx += h * y1[i].vx;
+    y0[i].vy += h * y1[i].vy;
+  }
+  if (n === 1) return y0;
+  let y2 = derivatives(y0, options);
+  for (let step = 1; step < n; step++) {
+    const next = y0.map((b, i) => b.fixed ? { ...b } : ({ ...b, x: b.x + 2 * h * y2[i].x, y: b.y + 2 * h * y2[i].y, vx: b.vx + 2 * h * y2[i].vx, vy: b.vy + 2 * h * y2[i].vy }));
+    y1 = y2;
+    y0 = next;
+    y2 = derivatives(y0, options);
+  }
+  return y0.map((b, i) => b.fixed ? { ...b } : ({ ...b, x: 0.5 * (b.x + snapshot[i].x + h * y2[i].x), y: 0.5 * (b.y + snapshot[i].y + h * y2[i].y), vx: 0.5 * (b.vx + snapshot[i].vx + h * y2[i].vx), vy: 0.5 * (b.vy + snapshot[i].vy + h * y2[i].vy) }));
+}
+
+function bulirschStoerStep(bodies, dt, options, stats) {
+  const state = snapshotBodies(bodies);
+  const sequence = [2, 4, 6, 8, 10, 12];
+  const table = [];
+  let best = null;
+  let bestErr = Infinity;
+  const tol = options.adaptiveTolerance ?? 1e-6;
+  const maxIter = options.maxExtrapolationOrder ?? sequence.length;
+  for (let k = 0; k < Math.min(sequence.length, maxIter); k++) {
+    const n = sequence[k];
+    const h = dt / n;
+    const mid = modifiedMidpoint(state, n, h, options);
+    table[k] = [mid];
+    for (let j = 1; j <= k; j++) {
+      const ratio = (sequence[k] / sequence[k - j]) ** 2;
+      const prev = table[k][j - 1];
+      const left = table[k - 1][j - 1];
+      table[k][j] = prev.map((b, i) => b.fixed ? { ...b } : ({ ...b, x: prev[i].x + (prev[i].x - left[i].x) / (ratio - 1), y: prev[i].y + (prev[i].y - left[i].y) / (ratio - 1), vx: prev[i].vx + (prev[i].vx - left[i].vx) / (ratio - 1), vy: prev[i].vy + (prev[i].vy - left[i].vy) / (ratio - 1) }));
+    }
+    const candidate = table[k][k];
+    if (best) {
+      const err = errorEstimate(candidate, best);
+      if (err < bestErr) bestErr = err;
+      if (err <= tol) {
+        commitSnapshot(bodies, candidate);
+        stats.acceptedSteps = 1;
+        stats.rejectedSteps = 0;
+        stats.substeps = n;
+        stats.maxError = err;
+        stats.meanSubstep = dt / n;
+        stats.stepHistory = [{ dt, error: err, order: 2 * (k + 1) }];
+        return;
+      }
+    }
+    best = candidate;
+  }
+  commitSnapshot(bodies, best);
+  stats.acceptedSteps = 1;
+  stats.rejectedSteps = 0;
+  stats.substeps = sequence[Math.min(sequence.length - 1, maxIter - 1)];
+  stats.maxError = bestErr === Infinity ? 0 : bestErr;
+  stats.meanSubstep = dt / stats.substeps;
+  stats.stepHistory = [{ dt, error: stats.maxError, order: 2 * maxIter }];
+}
+
+function closePairIndex(bodies) {
+  let min = Infinity;
+  let pair = null;
+  for (let i = 0; i < bodies.length; i++) {
+    for (let j = i + 1; j < bodies.length; j++) {
+      const d = Math.hypot(bodies[j].x - bodies[i].x, bodies[j].y - bodies[i].y);
+      if (d < min) { min = d; pair = [i, j]; }
+    }
+  }
+  return { min, pair };
+}
+
+function solveKeplerUniversal(r0, v0, dt, mu, maxIter = 24) {
+  const r0mag = Math.hypot(r0.x, r0.y);
+  const v0mag = Math.hypot(v0.x, v0.y);
+  const r0v0 = r0.x * v0.x + r0.y * v0.y;
+  const alpha = 2 / Math.max(r0mag, 1e-12) - (v0mag * v0mag) / mu;
+  let chi = Math.sqrt(mu) * Math.abs(alpha) * dt || Math.sqrt(mu) * dt / Math.max(r0mag, 1);
+  const stumpff = (z) => {
+    if (z > 1e-8) { const sz = Math.sqrt(z); return { C: (1 - Math.cos(sz)) / z, S: (sz - Math.sin(sz)) / (sz * z) }; }
+    if (z < -1e-8) { const sz = Math.sqrt(-z); return { C: (1 - Math.cosh(sz)) / z, S: (Math.sinh(sz) - sz) / (sz * (-z)) }; }
+    return { C: 1 / 2, S: 1 / 6 };
+  };
+  for (let iter = 0; iter < maxIter; iter++) {
+    const z = alpha * chi * chi;
+    const { C, S } = stumpff(z);
+    const F = (r0v0 / Math.sqrt(mu)) * chi * chi * C + (1 - alpha * r0mag) * chi ** 3 * S + r0mag * chi - Math.sqrt(mu) * dt;
+    const dF = (r0v0 / Math.sqrt(mu)) * chi * (1 - z * S) + (1 - alpha * r0mag) * chi * chi * C + r0mag;
+    const delta = F / Math.max(dF, 1e-12);
+    chi -= delta;
+    if (Math.abs(delta) < 1e-12) break;
+  }
+  const z = alpha * chi * chi;
+  const { C, S } = stumpff(z);
+  const f = 1 - (chi * chi / r0mag) * C;
+  const g = dt - (chi ** 3 / Math.sqrt(mu)) * S;
+  const r = { x: f * r0.x + g * v0.x, y: f * r0.y + g * v0.y };
+  const rmag = Math.hypot(r.x, r.y);
+  const fdot = (Math.sqrt(mu) / (r0mag * rmag)) * (alpha * chi ** 3 * S - chi);
+  const gdot = 1 - (chi * chi / rmag) * C;
+  const v = { x: fdot * r0.x + gdot * v0.x, y: fdot * r0.y + gdot * v0.y };
+  return { r, v };
+}
+
+function regularizedPairStep(bodies, pair, dt, options) {
+  const [i, j] = pair;
+  const a = bodies[i];
+  const b = bodies[j];
+  const totalMass = a.mass + b.mass;
+  if (totalMass <= 0) return false;
+  const bary = { x: (a.mass * a.x + b.mass * b.x) / totalMass, y: (a.mass * a.y + b.mass * b.y) / totalMass, vx: (a.mass * a.vx + b.mass * b.vx) / totalMass, vy: (a.mass * a.vy + b.mass * b.vy) / totalMass };
+  const r0 = { x: b.x - a.x, y: b.y - a.y };
+  const v0 = { x: b.vx - a.vx, y: b.vy - a.vy };
+  const mu = options.G * totalMass;
+  const propagated = solveKeplerUniversal(r0, v0, dt, mu);
+  const ra = { x: -propagated.r.x * (b.mass / totalMass), y: -propagated.r.y * (b.mass / totalMass) };
+  const rb = { x: propagated.r.x * (a.mass / totalMass), y: propagated.r.y * (a.mass / totalMass) };
+  const va = { x: -propagated.v.x * (b.mass / totalMass), y: -propagated.v.y * (b.mass / totalMass) };
+  const vb = { x: propagated.v.x * (a.mass / totalMass), y: propagated.v.y * (a.mass / totalMass) };
+  if (!a.fixed) { a.x = bary.x + ra.x; a.y = bary.y + ra.y; a.vx = bary.vx + va.x; a.vy = bary.vy + va.y; }
+  if (!b.fixed) { b.x = bary.x + rb.x; b.y = bary.y + rb.y; b.vx = bary.vx + vb.x; b.vy = bary.vy + vb.y; }
+  return true;
+}
+
+function maybeRegularizeCloseEncounter(bodies, dt, options) {
+  if (options.regularization === false) return false;
+  const { min, pair } = closePairIndex(bodies);
+  const radius = Number.isFinite(options.regularizationRadius) ? options.regularizationRadius : 8;
+  if (!pair || !Number.isFinite(min) || min > radius) return false;
+  return regularizedPairStep(bodies, pair, dt, options);
+}
+
+function rk45Step(bodies, dt, options, stats) {
+  adaptiveRk4Step(bodies, dt, options, stats);
+}
+
+function ias15Step(bodies, dt, options, stats) {
+  bulirschStoerStep(bodies, dt, options, stats);
 }
 
 function resolveCollisions(bodies, mode) {
@@ -617,56 +719,55 @@ function resolveCollisions(bodies, mode) {
   return { collisions };
 }
 
-export function stepSystem(
-  bodies,
-  { integrator = 'symplectic', dt = 0.02, G = 1, softening = 25, collision = 'none', accelerationMethod = null, forceModel = null, adaptiveTolerance = 1e-4, minAdaptiveDt = dt / 1024, stats = null } = {}
-) {
+export function stepSystem(bodies, { integrator = 'symplectic', dt = 0.02, G = 1, collision = 'none', accelerationMethod = null, forceModel = null, adaptiveTolerance = 1e-5, minAdaptiveDt = dt / 1024, stats = null, regularization = true, regularizationRadius = 8 } = {}) {
   const localStats = { acceptedSteps: 1, rejectedSteps: 0, substeps: 1, maxError: 0, meanSubstep: dt, stepHistory: [], collisions: 0 };
-  const options = { G, softening, forceModel, adaptiveTolerance, minAdaptiveDt, accelerationMethod: accelerationMethod || (integrator === 'barnes-hut' ? 'barnes-hut' : 'pairwise') };
-  if (integrator === 'rk45') adaptiveRk4Step(bodies, dt, options, localStats);
-  else if (integrator === 'euler') eulerStep(bodies, dt, options);
-  else if (integrator === 'verlet') verletStep(bodies, dt, options);
-  else if (integrator === 'rk4') commitSnapshot(bodies, rk4StepSnapshot(snapshotBodies(bodies), dt, options));
-  else symplecticStep(bodies, dt, options);
-
+  const options = { G, forceModel, adaptiveTolerance, minAdaptiveDt, regularization, regularizationRadius, accelerationMethod: accelerationMethod || (integrator === 'barnes-hut' ? 'barnes-hut' : 'pairwise') };
+  if (regularization && maybeRegularizeCloseEncounter(bodies, dt, options)) {
+    localStats.stepHistory = [{ dt, error: 0, regularized: true }];
+  } else if (integrator === 'rk45') {
+    rk45Step(bodies, dt, options, localStats);
+  } else if (integrator === 'ias15') {
+    ias15Step(bodies, dt, options, localStats);
+  } else if (integrator === 'euler') {
+    eulerStep(bodies, dt, options);
+  } else if (integrator === 'verlet') {
+    verletStep(bodies, dt, options);
+  } else if (integrator === 'yoshida4') {
+    yoshida4Step(bodies, dt, options);
+  } else if (integrator === 'rk4') {
+    commitSnapshot(bodies, rk4StepSnapshot(snapshotBodies(bodies), dt, options));
+  } else {
+    symplecticStep(bodies, dt, options);
+  }
   const collisionStats = resolveCollisions(bodies, collision);
   localStats.collisions = collisionStats.collisions;
   if (stats && typeof stats === 'object') Object.assign(stats, localStats);
   return bodies;
 }
 
-export function recommendedSubsteps(bodies, { dt = 0.02, softening = 25, maxSubsteps = 24, aggressiveness = 1.2 } = {}) {
-  const closest = Math.max(computeClosestApproach(bodies), softening * 0.6, 1e-6);
-  return Math.min(maxSubsteps, Math.max(1, Math.ceil((aggressiveness * dt * 55) / closest)));
+export function recommendedSubsteps(bodies, { dt = 0.02, regularizationRadius = 8, maxSubsteps = 48, aggressiveness = 1.2 } = {}) {
+  const closest = Math.max(computeClosestApproach(bodies), regularizationRadius * 0.4, 1e-9);
+  return Math.min(maxSubsteps, Math.max(1, Math.ceil((aggressiveness * dt * 65) / closest)));
 }
 
-export function benchmarkIntegrators(initialBodies, { steps = 1200, dt = 0.02, G = 1, softening = 25, forceModel = null } = {}) {
-  const methods = ['euler', 'symplectic', 'verlet', 'rk4', 'rk45', 'barnes-hut'];
+export function benchmarkIntegrators(initialBodies, { steps = 1200, dt = 0.02, G = 1, forceModel = null } = {}) {
+  const methods = ['euler', 'symplectic', 'verlet', 'yoshida4', 'rk4', 'rk45', 'ias15', 'barnes-hut'];
   const reference = cloneBodies(initialBodies);
-  for (let i = 0; i < steps; i++) stepSystem(reference, { integrator: 'rk4', dt, G, softening, collision: 'none', forceModel });
+  for (let i = 0; i < steps; i++) stepSystem(reference, { integrator: 'ias15', dt, G, collision: 'none', forceModel, regularization: true });
   const refPositions = reference.map((b) => ({ x: b.x, y: b.y }));
   const results = [];
   for (const integrator of methods) {
     const bodies = cloneBodies(initialBodies);
     const started = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
     const stats = {};
-    for (let i = 0; i < steps; i++) stepSystem(bodies, { integrator, dt, G, softening, collision: 'none', forceModel, stats });
+    for (let i = 0; i < steps; i++) stepSystem(bodies, { integrator, dt, G, collision: 'none', forceModel, stats, regularization: true });
     const ended = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
-    const energy0 = computeTotalEnergy(initialBodies, { G, softening });
-    const energy1 = computeTotalEnergy(bodies, { G, softening });
+    const energy0 = computeTotalEnergy(initialBodies, { G });
+    const energy1 = computeTotalEnergy(bodies, { G });
     const momentum0 = computeMomentum(initialBodies);
     const momentum1 = computeMomentum(bodies);
     const trajectoryError = Math.sqrt(bodies.reduce((sum, body, i) => sum + (body.x - refPositions[i].x) ** 2 + (body.y - refPositions[i].y) ** 2, 0) / Math.max(bodies.length, 1));
-    results.push({
-      integrator,
-      runtimeMs: ended - started,
-      energyDriftPercent: energy0 ? Math.abs((energy1 - energy0) / energy0) * 100 : 0,
-      momentumDrift: Math.abs(momentum1 - momentum0),
-      trajectoryError,
-      acceptedSteps: stats.acceptedSteps || 0,
-      rejectedSteps: stats.rejectedSteps || 0,
-      maxError: stats.maxError || 0
-    });
+    results.push({ integrator, runtimeMs: ended - started, energyDriftPercent: energy0 ? Math.abs((energy1 - energy0) / energy0) * 100 : 0, momentumDrift: Math.abs(momentum1 - momentum0), trajectoryError, acceptedSteps: stats.acceptedSteps || 0, rejectedSteps: stats.rejectedSteps || 0, maxError: stats.maxError || 0 });
   }
   return results;
 }
@@ -674,9 +775,5 @@ export function benchmarkIntegrators(initialBodies, { steps = 1200, dt = 0.02, G
 export function summarizeBenchmark(results) {
   const ranked = [...results].sort((a, b) => a.energyDriftPercent - b.energyDriftPercent);
   const winner = ranked[0];
-  return [
-    'Integrator benchmark summary',
-    `Best energy conservation: ${winner.integrator}`,
-    ...results.map((r) => `${r.integrator.padEnd(10)} | drift ${r.energyDriftPercent.toFixed(4)}% | momentum ${r.momentumDrift.toExponential(2)} | traj ${r.trajectoryError.toFixed(3)} | ${r.runtimeMs.toFixed(1)} ms${r.rejectedSteps ? ` | rej ${r.rejectedSteps}` : ''}`)
-  ].join('\n');
+  return ['Integrator benchmark summary', `Best energy conservation: ${winner.integrator}`, ...results.map((r) => `${r.integrator.padEnd(10)} | drift ${r.energyDriftPercent.toFixed(4)}% | momentum ${r.momentumDrift.toExponential(2)} | traj ${r.trajectoryError.toFixed(3)} | ${r.runtimeMs.toFixed(1)} ms${r.rejectedSteps ? ` | rej ${r.rejectedSteps}` : ''}`)].join('\n');
 }
