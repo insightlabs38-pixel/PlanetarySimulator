@@ -5,8 +5,11 @@
   const get = (id) => document.getElementById(id);
 
   const CONTROL_IDS = [
-    'g', 'dt', 'mass', 'trail', 'softening', 'zoom', 'seed', 'adaptiveStrength',
-    'adaptive', 'showTrails', 'showVectors', 'showLabels', 'preset', 'integrator', 'collision'
+    'g', 'dt', 'mass', 'trail', 'softening', 'zoom', 'seed', 'adaptiveStrength', 'adaptiveTolerance',
+    'adaptive', 'showTrails', 'showVectors', 'showLabels', 'preset', 'integrator', 'collision',
+    'j2Enabled', 'j2Strength', 'j2Radius', 'dragEnabled', 'dragStrength', 'dragScaleHeight',
+    'radiationEnabled', 'radiationStrength', 'postNewtonianEnabled', 'postNewtonianStrength',
+    'referenceMode', 'referenceIndex', 'targetIndex'
   ];
 
   function createButton(id, label, className = '') {
@@ -179,24 +182,14 @@
   }
 
   function readControlState() {
-    return {
-      g: get('g')?.value ?? '1',
-      dt: get('dt')?.value ?? '0.02',
-      mass: get('mass')?.value ?? '9000',
-      trail: get('trail')?.value ?? '90',
-      softening: get('softening')?.value ?? '25',
-      zoom: get('zoom')?.value ?? '1',
-      seed: get('seed')?.value ?? 't5-admissions',
-      adaptiveStrength: get('adaptiveStrength')?.value ?? '1.2',
-      adaptive: Boolean(get('adaptive')?.checked),
-      showTrails: Boolean(get('showTrails')?.checked),
-      showVectors: Boolean(get('showVectors')?.checked),
-      showLabels: Boolean(get('showLabels')?.checked),
-      preset: get('preset')?.value ?? 'default',
-      integrator: get('integrator')?.value ?? 'symplectic',
-      collision: get('collision')?.value ?? 'none',
-      running: String(get('toggle')?.textContent || '').trim().toLowerCase() === 'pause'
-    };
+    const state = {};
+    for (const id of CONTROL_IDS) {
+      const element = get(id);
+      if (!element) continue;
+      state[id] = 'checked' in element ? Boolean(element.checked) : element.value;
+    }
+    state.running = String(get('toggle')?.textContent || '').trim().toLowerCase() === 'pause';
+    return state;
   }
 
   function readHudState() {
@@ -211,9 +204,11 @@
   function applyControlState(snapshot = {}) {
     const pairs = [
       ['g', 'value'], ['dt', 'value'], ['mass', 'value'], ['trail', 'value'],
-      ['softening', 'value'], ['zoom', 'value'], ['seed', 'value'], ['adaptiveStrength', 'value'],
+      ['softening', 'value'], ['zoom', 'value'], ['seed', 'value'], ['adaptiveStrength', 'value'], ['adaptiveTolerance', 'value'],
+      ['j2Strength', 'value'], ['j2Radius', 'value'], ['dragStrength', 'value'], ['dragScaleHeight', 'value'], ['radiationStrength', 'value'], ['postNewtonianStrength', 'value'],
       ['adaptive', 'checked'], ['showTrails', 'checked'], ['showVectors', 'checked'], ['showLabels', 'checked'],
-      ['preset', 'value'], ['integrator', 'value'], ['collision', 'value']
+      ['j2Enabled', 'checked'], ['dragEnabled', 'checked'], ['radiationEnabled', 'checked'], ['postNewtonianEnabled', 'checked'],
+      ['preset', 'value'], ['integrator', 'value'], ['collision', 'value'], ['referenceMode', 'value'], ['referenceIndex', 'value'], ['targetIndex', 'value']
     ];
 
     for (const [id, prop] of pairs) {
@@ -225,9 +220,11 @@
 
     const dispatchPairs = [
       ['g', 'input'], ['dt', 'input'], ['mass', 'input'], ['trail', 'input'],
-      ['softening', 'input'], ['zoom', 'input'], ['seed', 'input'], ['adaptiveStrength', 'input'],
+      ['softening', 'input'], ['zoom', 'input'], ['seed', 'input'], ['adaptiveStrength', 'input'], ['adaptiveTolerance', 'input'],
+      ['j2Strength', 'input'], ['j2Radius', 'input'], ['dragStrength', 'input'], ['dragScaleHeight', 'input'], ['radiationStrength', 'input'], ['postNewtonianStrength', 'input'],
       ['adaptive', 'change'], ['showTrails', 'change'], ['showVectors', 'change'], ['showLabels', 'change'],
-      ['preset', 'change'], ['integrator', 'change'], ['collision', 'change']
+      ['j2Enabled', 'change'], ['dragEnabled', 'change'], ['radiationEnabled', 'change'], ['postNewtonianEnabled', 'change'],
+      ['preset', 'change'], ['integrator', 'change'], ['collision', 'change'], ['referenceMode', 'change'], ['referenceIndex', 'change'], ['targetIndex', 'change']
     ];
 
     for (const [id, type] of dispatchPairs) {
@@ -258,97 +255,8 @@
   }
 
   function collectDiagnostics() {
-    const energyDrift = parseNumeric(get('energyOut')?.textContent) || 0;
-    const momentum = parseNumeric(get('momentumOut')?.textContent) || 0;
-    const angularMomentum = parseNumeric(get('angularOut')?.textContent) || 0;
-    const closestApproach = parseNumeric(get('closestOut')?.textContent) || 0;
-    const maxSpeed = parseNumeric(get('speedOut')?.textContent) || 0;
-    const timestep = parseNumeric(get('dtOut')?.textContent) || 0;
-    const softening = parseNumeric(get('softOut')?.textContent) || 0;
-    const benchmarkText = get('benchmarkOut')?.textContent || '';
-    const statusDetail = get('statusDetail')?.textContent || '';
-    const bestIntegrator = extractBestIntegrator(benchmarkText);
-
-    const encounterRatio = softening > 0 ? closestApproach / softening : Infinity;
-    let score = 100;
-    score -= Math.min(energyDrift * 140, 60);
-    score -= Math.min(Math.log10(momentum + 10) * 5, 16);
-    score -= Number.isFinite(encounterRatio) ? Math.max(0, (1.9 - encounterRatio) * 14) : 0;
-    score -= Math.max(0, maxSpeed * timestep - 4) * 4;
-    if ((get('adaptive')?.checked ?? false) === false) score -= 4;
-    if (bestIntegrator === 'euler') score -= 3;
-    score = Math.max(0, Math.min(100, Math.round(score)));
-
-    const label = score >= 85 ? 'Excellent' : score >= 70 ? 'Stable' : score >= 50 ? 'Watch' : 'Unstable';
-    const verdict = energyDrift < 0.01
-      ? 'Conservation is very tight.'
-      : energyDrift < 0.1
-        ? 'Conservation is acceptable.'
-        : 'Conservation is drifting.';
-
-    let action = 'No immediate adjustment needed.';
-    let hint = 'The current setup is well within a presentation-safe range.';
-
-    if (energyDrift > 0.1) {
-      action = 'Lower the timestep or use Verlet/RK4.';
-      hint = 'The current step size is the first parameter to tighten when drift rises.';
-    } else if (Number.isFinite(encounterRatio) && encounterRatio < 1.5) {
-      action = 'Increase softening or enable adaptive stepping.';
-      hint = 'The system is entering a close-encounter regime where substeps matter more.';
-    } else if (momentum > 1000) {
-      action = 'Inspect the initial conditions or collision mode.';
-      hint = 'Momentum is high enough that the run deserves a closer look before presenting.';
-    }
-
-    return {
-      score,
-      label,
-      verdict,
-      action,
-      hint,
-      bestIntegrator,
-      energyDrift,
-      momentum,
-      angularMomentum,
-      closestApproach,
-      maxSpeed,
-      timestep,
-      softening,
-      encounterRatio,
-      statusDetail
-    };
-  }
-
-  function renderDiagnostics() {
-    const panel = ensureDiagnosticsPanel();
-    if (!panel) return null;
-
-    const diagnostics = collectDiagnostics();
-    const scoreEl = get('stabilityScore');
-    const labelEl = get('stabilityLabel');
-    const bestEl = get('bestIntegrator');
-    const verdictEl = get('diagnosticVerdict');
-    const reasonEl = get('diagnosticReason');
-    const actionEl = get('diagnosticAction');
-    const hintEl = get('diagnosticHint');
-
-    if (scoreEl) scoreEl.textContent = String(diagnostics.score);
-    if (labelEl) labelEl.textContent = diagnostics.label;
-    if (bestEl) bestEl.textContent = diagnostics.bestIntegrator;
-    if (verdictEl) verdictEl.textContent = diagnostics.verdict;
-    if (reasonEl) {
-      reasonEl.textContent = [
-        `Drift ${diagnostics.energyDrift.toFixed(4)}%`,
-        `Momentum ${diagnostics.momentum.toFixed(2)}`,
-        `Closest approach ${diagnostics.closestApproach.toFixed(2)}`
-      ].join(' · ');
-    }
-    if (actionEl) actionEl.textContent = diagnostics.action;
-    if (hintEl) {
-      hintEl.textContent = `${diagnostics.hint}${diagnostics.statusDetail ? ` Current run: ${diagnostics.statusDetail}.` : ''}`;
-    }
-
-    return diagnostics;
+    const diagnostics = renderDiagnostics();
+    return diagnostics || null;
   }
 
   function collectRuntimeSnapshot() {
