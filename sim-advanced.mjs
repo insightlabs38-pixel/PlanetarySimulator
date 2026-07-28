@@ -10,7 +10,6 @@ import {
   computeMomentum,
   computeSystemOrbitalAnalytics,
   computeTotalEnergy,
-  orbitalElements,
   recommendedSubsteps,
   stepSystem,
   summarizeBenchmark
@@ -88,6 +87,7 @@ import {
   let previousOrbit = null;
   let previousShadowSample = null;
   let advancedPanelReady = false;
+  const dragState = { dragging: false, start: null, point: null };
 
   const colors = ['#ff6b6b', '#ffd166', '#06d6a0', '#4cc9f0', '#f72585', '#b8f2e6', '#c77dff'];
   const starField = Array.from({ length: 120 }, (_, i) => ({ x: ((i * 37) % 100) / 100, y: ((i * 73) % 100) / 100, r: 0.3 + (i % 5) * 0.22, a: 0.08 + (i % 7) * 0.03 }));
@@ -312,10 +312,12 @@ import {
   }
 
   function approxPrecessionRate(orbit) {
-    if (!orbit) return null;
-    if (!Number.isFinite(orbit.periapsisAngle)) return null;
-    state.periapsisHistory.push({ time: state.time, angle: orbit.periapsisAngle });
-    if (state.periapsisHistory.length > 12) state.periapsisHistory.shift();
+    if (!orbit || !Number.isFinite(orbit.periapsisAngle)) return null;
+    const lastSample = state.periapsisHistory[state.periapsisHistory.length - 1];
+    if (!lastSample || lastSample.time !== state.time) {
+      state.periapsisHistory.push({ time: state.time, angle: orbit.periapsisAngle });
+      if (state.periapsisHistory.length > 12) state.periapsisHistory.shift();
+    }
     if (state.periapsisHistory.length < 2) return null;
     const first = state.periapsisHistory[0];
     const last = state.periapsisHistory[state.periapsisHistory.length - 1];
@@ -370,9 +372,9 @@ import {
       if (phaseSpaceHistory.length > 120) phaseSpaceHistory.shift();
     }
 
-    const orbit = state.orbit || updateOrbitAnalysis();
+    updateAnalysis();
     updateLyapunov();
-    detectEvents(orbit, state.lastStepStats);
+    detectEvents(state.orbit, state.lastStepStats);
     stepErrorHistory.push(state.lastStepStats.maxError || 0);
     if (stepErrorHistory.length > 180) stepErrorHistory.shift();
   }
@@ -416,7 +418,7 @@ import {
     els.benchmarkOut.textContent = state.benchmarkText;
     const eventLog = document.getElementById('eventLog');
     if (eventLog) eventLog.textContent = state.eventLog.length ? state.eventLog.join('\n') : 'No events yet.';
-    document.getElementById('resonanceOut')?.textContent && (() => {
+    if (document.getElementById('resonanceOut')) {
       const orbit = state.orbit;
       document.getElementById('resonanceOut').textContent = orbit?.resonanceRatio || '—';
       const rate = approxPrecessionRate(orbit);
@@ -425,7 +427,7 @@ import {
       document.getElementById('adaptiveErrorOut').textContent = state.lastStepStats.maxError ? state.lastStepStats.maxError.toExponential(2) : '0';
       document.getElementById('rejectedOut').textContent = String(state.lastStepStats.rejectedSteps || 0);
       document.getElementById('avgStepOut').textContent = state.lastStepStats.meanSubstep ? state.lastStepStats.meanSubstep.toFixed(4) : '—';
-    })();
+    }
   }
 
   function getForceModel() {
@@ -886,8 +888,10 @@ import {
     els.showTrails.checked = true;
     els.showVectors.checked = false;
     els.showLabels.checked = true;
-    const advanced = ['j2Enabled', 'dragEnabled', 'radiationEnabled', 'postNewtonianEnabled'];
-    for (const id of advanced) document.getElementById(id) && (document.getElementById(id).checked = false);
+    for (const id of ['j2Enabled', 'dragEnabled', 'radiationEnabled', 'postNewtonianEnabled']) {
+      const el = document.getElementById(id);
+      if (el) el.checked = false;
+    }
     state.preset = 'default';
     state.integrator = 'symplectic';
     state.collision = 'none';
@@ -998,8 +1002,6 @@ import {
       runBenchmark();
     }
   });
-
-  const dragState = { dragging: false, start: null, point: null };
 
   window.__orbitalLab = {
     ...(window.__orbitalLab || {}),
