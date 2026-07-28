@@ -4,19 +4,26 @@ Orbital Lab is an interactive 2D N-body gravity simulator designed as a portfoli
 
 The project now centers on three ideas:
 
-1. **Numerical methods are visible.** Different integrators produce different energy drift and trajectory behavior.
+1. **Numerical methods are visible.** Different integrators produce different energy drift, local error, and trajectory behavior.
 2. **Experiments are reproducible.** Random systems are seeded, telemetry can be exported, run bundles can be saved and re-imported, and the browser restores the last control state automatically.
 3. **Physics is measurable.** The UI exposes orbital elements, conservation metrics, benchmark comparisons, and a live diagnostics score that flags unstable runs before they become misleading.
 
 ## Current features
 
 - N-body Newtonian gravity with pairwise interactions
+- Barnes–Hut tree approximation for larger systems
 - Gravitational softening to avoid singular behavior during close encounters
-- Four integrators:
+- Integrators:
   - Euler
   - Symplectic Euler
   - Velocity Verlet
   - RK4
+  - Adaptive RK4 / RK45-style step control
+- Optional perturbation models:
+  - J2 oblateness
+  - Atmospheric drag
+  - Radiation pressure
+  - First post-Newtonian correction
 - Presets for:
   - Default system
   - Binary star system
@@ -30,7 +37,7 @@ The project now centers on three ideas:
   - Ghost pass-through
   - Inelastic merge
   - Elastic bounce
-- Adaptive timestep control based on close-encounter spacing
+- Adaptive timestep control based on close-encounter spacing, with explicit error reporting for the adaptive solver
 - Live metrics:
   - Total energy and energy drift
   - Linear momentum magnitude
@@ -38,16 +45,21 @@ The project now centers on three ideas:
   - Center of mass
   - Closest approach
   - Maximum speed
-- Orbital-element estimates for one active body relative to the primary body:
-  - semi-major axis
-  - eccentricity
-  - period
-  - periapsis
-  - apoapsis
-  - escape speed
-  - specific orbital energy
+- Orbital analysis:
+  - Semi-major axis
+  - Eccentricity
+  - Period
+  - Periapsis
+  - Apoapsis
+  - Escape speed
+  - Specific orbital energy
+  - Resonance ratio estimates
+  - Periapsis precession tracking
+  - Finite-time Lyapunov estimate
+  - Event log for periapsis, apoapsis, escape transitions, and collisions
 - Energy-drift graph
 - Phase-space graph
+- Adaptive-error graph
 - CSV export
 - PNG snapshot export
 - Reproducibility bundle export with UI state, diagnostics, and canvas capture
@@ -66,14 +78,14 @@ The project now centers on three ideas:
 
 ```text
 PlanetarySimulator/
-├── index.html          # UI shell
-├── styles-v2.css       # Visual system
-├── physics-globals.js  # Global Body shim for the browser module runtime
-├── sim.js              # Legacy entrypoint that loads the module runtime
-├── sim.mjs             # Browser runtime and simulation controller
-├── enhancements.mjs    # Reproducibility, session persistence, diagnostics, and shortcut overlay
-├── presentation-boost.mjs # Presentation mode and run briefs
-├── physics-core.mjs    # Physics, integrators, orbital elements, benchmark utilities
+├── index.html               # UI shell
+├── styles-v2.css            # Visual system
+├── physics-globals.js        # Global Body shim for the browser module runtime
+├── sim.js                   # Legacy entrypoint that loads the module runtime
+├── sim-advanced.mjs         # Advanced browser runtime and simulation controller
+├── enhancements.mjs         # Reproducibility, session persistence, diagnostics, and shortcut overlay
+├── presentation-boost.mjs   # Presentation mode and run briefs
+├── physics-core-advanced.mjs # Advanced physics, integrators, force models, benchmark utilities
 ├── tests/
 │   └── physics.test.mjs
 └── .github/
@@ -95,6 +107,7 @@ The energy metric uses kinetic energy plus softened pairwise potential energy, w
 - **Symplectic Euler** generally behaves better for long-lived orbital systems.
 - **Velocity Verlet** is a strong conservative-method compromise.
 - **RK4** provides a high-accuracy reference for shorter runs, but it is not symplectic.
+- **Adaptive RK4 / RK45-style control** adds explicit local-error monitoring.
 
 ## Running locally
 
@@ -109,7 +122,7 @@ python3 -m http.server
 ## What to try
 
 - Compare Euler vs Symplectic Euler on the same preset.
-- Compare Verlet and RK4 while watching energy drift.
+- Compare Verlet, RK4, and adaptive RK4 while watching energy drift and adaptive error.
 - Turn adaptive stepping off and increase the timestep.
 - Randomize the system using a seed and rerun it later.
 - Run the benchmark and inspect the generated report.
