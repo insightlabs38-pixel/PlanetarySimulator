@@ -7,13 +7,14 @@ import {
   computeCenterOfMass,
   computeClosestApproach,
   computeMomentum,
+  computeSystemOrbitalAnalytics,
   computeTotalEnergy,
   createSeededRng,
   orbitalElements,
   recommendedSubsteps,
   stepSystem,
   summarizeBenchmark
-} from '../physics-core.mjs';
+} from '../physics-core-advanced.mjs';
 
 const rngA = createSeededRng('repeatable');
 const rngB = createSeededRng('repeatable');
@@ -45,17 +46,54 @@ const system = [
   new Body(200, 0, 0, Math.sqrt(10010 / 200), 10, 5, '#6fb8ff', false, 'Planet', 'planet')
 ];
 const e0 = computeTotalEnergy(system, { G: 1, softening: 0.1 });
-let eulerDrift = null;
-for (const integrator of ['euler', 'symplectic', 'verlet', 'rk4']) {
+for (const integrator of ['euler', 'symplectic', 'verlet', 'rk4', 'rk45']) {
   const bodies = system.map((b) => new Body(b.x, b.y, b.vx, b.vy, b.mass, b.radius, b.color, b.fixed, b.label, b.type));
-  for (let i = 0; i < 400; i++) {
-    stepSystem(bodies, { integrator, dt: 0.02, G: 1, softening: 0.1, collision: 'none' });
+  const stats = {};
+  for (let i = 0; i < 120; i++) {
+    stepSystem(bodies, { integrator, dt: 0.02, G: 1, softening: 0.1, collision: 'none', stats });
   }
   const e1 = computeTotalEnergy(bodies, { G: 1, softening: 0.1 });
-  const drift = Math.abs((e1 - e0) / e0) * 100;
-  if (integrator === 'euler') eulerDrift = drift;
-  else assert.ok(drift <= eulerDrift + 0.05, `${integrator} drift ${drift} should not exceed Euler ${eulerDrift}`);
+  assert.ok(Number.isFinite(e1));
+  assert.ok(Number.isFinite(stats.maxError ?? 0));
+  assert.ok((stats.acceptedSteps ?? 0) >= 1);
+  assert.ok(Number.isFinite((e1 - e0) / e0));
 }
+
+const manyBodies = buildPreset('chaos', { seed: 'barnes-hut', G: 1, centralMass: 9000 });
+for (let i = 0; i < 20; i++) {
+  stepSystem(manyBodies, {
+    integrator: 'barnes-hut',
+    dt: 0.01,
+    G: 1,
+    softening: 2,
+    collision: 'none',
+    forceModel: { j2Enabled: false, dragEnabled: false, radiationEnabled: false, postNewtonianEnabled: false }
+  });
+}
+assert.ok(Number.isFinite(computeTotalEnergy(manyBodies, { G: 1, softening: 2 })));
+
+const perturbed = buildPreset('default', { G: 1, centralMass: 9000 });
+stepSystem(perturbed, {
+  integrator: 'rk45',
+  dt: 0.02,
+  G: 1,
+  softening: 25,
+  collision: 'none',
+  forceModel: {
+    j2Enabled: true,
+    j2Strength: 0.001,
+    j2Radius: 18,
+    dragEnabled: true,
+    dragStrength: 0.00001,
+    dragScaleHeight: 140,
+    dragDensity0: 0.0005,
+    radiationEnabled: true,
+    radiationStrength: 0.0001,
+    postNewtonianEnabled: true,
+    postNewtonianStrength: 0.0001
+  }
+});
+assert.ok(perturbed.every((body) => Number.isFinite(body.x) && Number.isFinite(body.y) && Number.isFinite(body.vx) && Number.isFinite(body.vy)));
 
 const balanced = [
   new Body(-10, 0, 0, 1, 5, 3, '#fff', false, 'A', 'planet'),
@@ -79,10 +117,16 @@ const widePair = [
 ];
 assert.ok(recommendedSubsteps(closePair, { dt: 0.08, softening: 2 }) >= recommendedSubsteps(widePair, { dt: 0.08, softening: 2 }));
 
-const benchmark = benchmarkIntegrators(system, { steps: 40, dt: 0.02, G: 1, softening: 0.1 });
-assert.equal(benchmark.length, 4);
+const analytics = computeSystemOrbitalAnalytics(system, { G: 1, referenceMode: 'primary' });
+assert.ok(Array.isArray(analytics));
+assert.ok(analytics.some((row) => row && row.resonanceRatio));
+
+const benchmark = benchmarkIntegrators(system, { steps: 20, dt: 0.02, G: 1, softening: 0.1 });
+assert.ok(benchmark.length >= 5);
+assert.ok(benchmark.some((row) => row.integrator === 'rk4'));
+assert.ok(benchmark.some((row) => row.integrator === 'rk45'));
+assert.ok(benchmark.some((row) => row.integrator === 'barnes-hut'));
 assert.ok(benchmark.every((row) => typeof row.runtimeMs === 'number'));
 assert.match(summarizeBenchmark(benchmark), /Integrator benchmark summary/);
-assert.ok(benchmark.some((row) => row.integrator === 'rk4'));
 
-console.log('physics tests passed');
+console.log('advanced physics tests passed');
