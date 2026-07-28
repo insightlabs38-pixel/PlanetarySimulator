@@ -15,8 +15,10 @@ jobs:
       - name: Syntax check
         run: |
           node --check sim.js
+          node --check sim-advanced.mjs
           node --check sim.mjs
           node --check physics-core.mjs
+          node --check physics-core-advanced.mjs
           node --check physics-globals.js
           node --check enhancements.mjs
           node --check presentation-boost.mjs
