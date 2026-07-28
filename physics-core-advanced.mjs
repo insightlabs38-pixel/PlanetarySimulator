@@ -33,60 +33,85 @@ export function createSeededRng(seed = 'orbital-lab') {
 }
 
 export function cloneBodies(bodies) {
-  return bodies.map((body) => ({
-    x: body.x, y: body.y, vx: body.vx, vy: body.vy,
-    mass: body.mass, radius: body.radius, color: body.color,
-    fixed: !!body.fixed, label: body.label || '', type: body.type || 'body', trail: []
-  }));
+  return bodies.map((body) => new Body(body.x, body.y, body.vx, body.vy, body.mass, body.radius, body.color, !!body.fixed, body.label || '', body.type || 'body'));
+}
+
+function makeOrbitingBody({
+  r,
+  angle,
+  mass,
+  radius,
+  color,
+  centralMass,
+  G,
+  tangential = 1,
+  label = 'Body',
+  type = 'planet'
+}) {
+  const x = Math.cos(angle) * r;
+  const y = Math.sin(angle) * r;
+  const v = Math.sqrt((G * centralMass) / Math.max(r, 1));
+  return new Body(
+    x,
+    y,
+    -Math.sin(angle) * v * tangential,
+    Math.cos(angle) * v * tangential,
+    mass,
+    radius,
+    color,
+    false,
+    label,
+    type
+  );
 }
 
 function defaultPreset(centralMass) {
   return [
-    [0, 0, 0, 0, centralMass, 18, '#f5c542', true, 'Star', 'star'],
-    [170, 0, 0, 0, 18, 7, '#6fb8ff', false, 'Planet A', 'planet'],
-    [-255, 0, 0, 0, 9, 5, '#ec7da5', false, 'Planet B', 'planet'],
-    [0, 310, 6.4, 0, 1.2, 3, '#b8f2e6', false, 'Probe', 'probe']
+    new Body(0, 0, 0, 0, centralMass, 18, '#f5c542', true, 'Star', 'star'),
+    new Body(170, 0, 0, 0, 18, 7, '#6fb8ff', false, 'Planet A', 'planet'),
+    new Body(-255, 0, 0, 0, 9, 5, '#ec7da5', false, 'Planet B', 'planet'),
+    new Body(0, 310, 6.4, 0, 1.2, 3, '#b8f2e6', false, 'Probe', 'probe')
   ];
 }
 
 function binaryPreset() {
   return [
-    [-90, 0, 0, 5.8, 7000, 16, '#ffd166', true, 'Primary', 'star'],
-    [90, 0, 0, -5.8, 7000, 16, '#6fb8ff', true, 'Secondary', 'star'],
-    [0, 210, -6.8, 0, 18, 5, '#b8f2e6', false, 'Planet', 'planet'],
-    [0, -280, 5.2, 0, 1, 3, '#f72585', false, 'Comet', 'comet']
+    new Body(-90, 0, 0, 5.8, 7000, 16, '#ffd166', true, 'Primary', 'star'),
+    new Body(90, 0, 0, -5.8, 7000, 16, '#6fb8ff', true, 'Secondary', 'star'),
+    new Body(0, 210, -6.8, 0, 18, 5, '#b8f2e6', false, 'Planet', 'planet'),
+    new Body(0, -280, 5.2, 0, 1, 3, '#f72585', false, 'Comet', 'comet')
   ];
 }
 
 function solarPreset(centralMass) {
   return [
-    [0, 0, 0, 0, centralMass, 18, '#f5c542', true, 'Sun', 'star'],
-    [110, 0, 0, 10.447, 18, 5, '#6fb8ff', false, 'Mercury', 'planet'],
-    [-170, 0, 0, -8.55, 22, 6, '#ffd166', false, 'Venus', 'planet'],
-    [255, 0, 0, 6.45, 12, 5.5, '#4cc9f0', false, 'Earth', 'planet'],
-    [275, 18, 1, 8.2, 2.5, 2.1, '#dfe8ff', false, 'Moon', 'moon'],
-    [-360, 0, 0, -5.4, 7, 4, '#ec7da5', false, 'Mars', 'planet'],
-    [480, 0, 0, 4.65, 38, 10, '#c77dff', false, 'Jupiter', 'planet']
+    new Body(0, 0, 0, 0, centralMass, 18, '#f5c542', true, 'Sun', 'star'),
+    new Body(110, 0, 0, 10.447, 18, 5, '#6fb8ff', false, 'Mercury', 'planet'),
+    new Body(-170, 0, 0, -8.55, 22, 6, '#ffd166', false, 'Venus', 'planet'),
+    new Body(255, 0, 0, 6.45, 12, 5.5, '#4cc9f0', false, 'Earth', 'planet'),
+    new Body(275, 18, 1, 8.2, 2.5, 2.1, '#dfe8ff', false, 'Moon', 'moon'),
+    new Body(-360, 0, 0, -5.4, 7, 4, '#ec7da5', false, 'Mars', 'planet'),
+    new Body(480, 0, 0, 4.65, 38, 10, '#c77dff', false, 'Jupiter', 'planet')
   ];
 }
 
 function earthMoonPreset() {
   return [
-    [0, 0, 0, 0, 14000, 18, '#f5c542', true, 'Earth', 'star'],
-    [140, 0, 0, 8.6, 30, 8, '#6fb8ff', false, 'Moon', 'moon'],
-    [0, 310, 7.3, 0, 0.3, 2.5, '#ffd166', false, 'Satellite', 'probe'],
-    [-320, -130, 1.6, -2.6, 2, 3.5, '#f72585', false, 'Asteroid', 'asteroid']
+    new Body(0, 0, 0, 0, 14000, 18, '#f5c542', true, 'Earth', 'star'),
+    new Body(140, 0, 0, 8.6, 30, 8, '#6fb8ff', false, 'Moon', 'moon'),
+    new Body(0, 310, 7.3, 0, 0.3, 2.5, '#ffd166', false, 'Satellite', 'probe'),
+    new Body(-320, -130, 1.6, -2.6, 2, 3.5, '#f72585', false, 'Asteroid', 'asteroid')
   ];
 }
 
 function jovianPreset() {
   return [
-    [0, 0, 0, 0, 16000, 18, '#f5c542', true, 'Jupiter', 'star'],
-    [115, 0, 0, 10.6, 24, 8.2, '#ffd166', false, 'Io', 'moon'],
-    [165, 0, 0, 8.5, 18, 7.2, '#6fb8ff', false, 'Europa', 'moon'],
-    [220, 0, 0, 6.9, 20, 7.8, '#b8f2e6', false, 'Ganymede', 'moon'],
-    [280, 0, 0, 5.6, 22, 8, '#c77dff', false, 'Callisto', 'moon'],
-    [-410, 120, 1.2, -4.8, 1.2, 3, '#f72585', false, 'Comet', 'comet']
+    new Body(0, 0, 0, 0, 16000, 18, '#f5c542', true, 'Jupiter', 'star'),
+    new Body(115, 0, 0, 10.6, 24, 8.2, '#ffd166', false, 'Io', 'moon'),
+    new Body(165, 0, 0, 8.5, 18, 7.2, '#6fb8ff', false, 'Europa', 'moon'),
+    new Body(220, 0, 0, 6.9, 20, 7.8, '#b8f2e6', false, 'Ganymede', 'moon'),
+    new Body(280, 0, 0, 5.6, 22, 8, '#c77dff', false, 'Callisto', 'moon'),
+    new Body(-410, 120, 1.2, -4.8, 1.2, 3, '#f72585', false, 'Comet', 'comet')
   ];
 }
 
@@ -96,53 +121,49 @@ function resonantPreset(centralMass) {
   const innerSpeed = Math.sqrt(centralMass / innerRadius);
   const outerSpeed = Math.sqrt(centralMass / outerRadius);
   return [
-    [0, 0, 0, 0, centralMass, 18, '#f5c542', true, 'Resonant Star', 'star'],
-    [innerRadius, 0, 0, innerSpeed * 0.985, 17, 6.5, '#6fb8ff', false, 'Inner Resonant', 'planet'],
-    [outerRadius, 0, 0, outerSpeed * 0.995, 11, 5.5, '#b8f2e6', false, 'Outer Resonant', 'planet'],
-    [0, 246, 6.15, 0, 1.8, 2.8, '#c77dff', false, 'Companion', 'moon']
+    new Body(0, 0, 0, 0, centralMass, 18, '#f5c542', true, 'Resonant Star', 'star'),
+    new Body(innerRadius, 0, 0, innerSpeed * 0.985, 17, 6.5, '#6fb8ff', false, 'Inner Resonant', 'planet'),
+    new Body(outerRadius, 0, 0, outerSpeed * 0.995, 11, 5.5, '#b8f2e6', false, 'Outer Resonant', 'planet'),
+    new Body(0, 246, 6.15, 0, 1.8, 2.8, '#c77dff', false, 'Companion', 'moon')
   ];
 }
 
 function figure8Preset() {
   return [
-    [-100, 0, 0.35, 0.53, 3000, 12, '#ff6b6b', false, 'Body 1', 'planet'],
-    [100, 0, 0.35, 0.53, 3000, 12, '#6fb8ff', false, 'Body 2', 'planet'],
-    [0, 0, -0.7, -1.06, 3000, 12, '#ffd166', false, 'Body 3', 'planet']
+    new Body(-100, 0, 0.35, 0.53, 3000, 12, '#ff6b6b', false, 'Body 1', 'planet'),
+    new Body(100, 0, 0.35, 0.53, 3000, 12, '#6fb8ff', false, 'Body 2', 'planet'),
+    new Body(0, 0, -0.7, -1.06, 3000, 12, '#ffd166', false, 'Body 3', 'planet')
   ];
 }
 
 function chaosPreset({ G = 1, centralMass = 10000, seed = 'orbital-lab' } = {}) {
   const rng = createSeededRng(seed);
-  const system = [[0, 0, 0, 0, centralMass, 18, '#f5c542', true, 'Seed Star', 'star']];
+  const system = [new Body(0, 0, 0, 0, centralMass, 18, '#f5c542', true, 'Seed Star', 'star')];
   const labels = ['Planet', 'Moon', 'Comet', 'Asteroid', 'Probe', 'Dwarf', 'Body'];
   for (let i = 0; i < 8; i++) {
-    const radius = 95 + rng() * 430;
+    const r = 95 + rng() * 430;
     const angle = rng() * Math.PI * 2;
-    const x = Math.cos(angle) * radius;
-    const y = Math.sin(angle) * radius;
     const mass = 1.5 + rng() * 28;
-    const orbitalSpeed = Math.sqrt((G * centralMass) / Math.max(radius, 1));
-    const tangential = rng() > 0.5 ? 1 : -1;
-    const type = i % 3 === 0 ? 'comet' : i % 2 === 0 ? 'asteroid' : 'planet';
-    system.push([
-      x,
-      y,
-      -Math.sin(angle) * orbitalSpeed * tangential,
-      Math.cos(angle) * orbitalSpeed * tangential,
+    const label = `${labels[i % labels.length]} ${i + 1}`;
+    system.push(makeOrbitingBody({
+      r,
+      angle,
       mass,
-      3.5 + rng() * 4.5,
-      COLORS[i % COLORS.length],
-      false,
-      `${labels[i % labels.length]} ${i + 1}`,
-      type
-    ]);
+      radius: 3.5 + rng() * 4.5,
+      color: COLORS[i % COLORS.length],
+      centralMass,
+      G,
+      tangential: rng() > 0.5 ? 1 : -1,
+      label,
+      type: i % 3 === 0 ? 'comet' : i % 2 === 0 ? 'asteroid' : 'planet'
+    }));
   }
   return system;
 }
 
 export function buildPreset(name, options = {}) {
   const { G = 1, centralMass = 9000, seed = 'orbital-lab' } = options;
-  const raw = ({
+  const factory = {
     default: () => defaultPreset(centralMass),
     binary: binaryPreset,
     solar: () => solarPreset(centralMass),
@@ -151,22 +172,27 @@ export function buildPreset(name, options = {}) {
     resonant: () => resonantPreset(centralMass),
     figure8: figure8Preset,
     chaos: () => chaosPreset({ G, centralMass, seed })
-  }[name] || (() => defaultPreset(centralMass)))();
-  return raw.map((tuple) => new Body(...tuple));
+  }[name] || (() => defaultPreset(centralMass));
+  return factory().map((b) => new Body(b.x, b.y, b.vx, b.vy, b.mass, b.radius, b.color, b.fixed, b.label, b.type));
 }
 
 function primaryBody(bodies) {
   return bodies.find((b) => b.fixed) || [...bodies].sort((a, b) => b.mass - a.mass)[0] || null;
 }
 
-function computePairwiseAccelerations(bodies, { G = 1, softening = 25 } = {}) {
+function softDistanceSquared(dx, dy, softening) {
+  return dx * dx + dy * dy + softening * softening;
+}
+
+function pairwiseAccelerations(bodies, { G = 1, softening = 25 } = {}) {
   const acc = bodies.map(() => ({ x: 0, y: 0 }));
-  const eps2 = softening * softening;
   for (let i = 0; i < bodies.length; i++) {
     for (let j = i + 1; j < bodies.length; j++) {
-      const a = bodies[i], b = bodies[j];
-      const dx = b.x - a.x, dy = b.y - a.y;
-      const d2 = dx * dx + dy * dy + eps2;
+      const a = bodies[i];
+      const b = bodies[j];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const d2 = softDistanceSquared(dx, dy, softening);
       const d = Math.sqrt(d2);
       const scale = G / (d2 * d);
       if (!a.fixed) { acc[i].x += scale * b.mass * dx; acc[i].y += scale * b.mass * dy; }
@@ -185,11 +211,20 @@ function buildBarnesHutTree(bodies) {
   }
   const span = Math.max(maxX - minX, maxY - minY, 1);
   const half = span / 2 + 1e-6;
-  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-  const makeNode = (x, y, half) => ({ x, y, half, mass: 0, comX: 0, comY: 0, body: null, children: null });
-  const root = makeNode(cx, cy, half);
-  const childIndex = (node, b) => (b.y >= node.y ? 2 : 0) + (b.x >= node.x ? 1 : 0);
-  const childNode = (node, quad) => makeNode(node.x + (quad % 2 ? 0.5 : -0.5) * node.half, node.y + (quad < 2 ? -0.5 : 0.5) * node.half, node.half / 2);
+  const root = { x: (minX + maxX) / 2, y: (minY + maxY) / 2, half, mass: 0, comX: 0, comY: 0, body: null, children: null };
+
+  const quadIndex = (node, b) => (b.y >= node.y ? 2 : 0) + (b.x >= node.x ? 1 : 0);
+  const makeChild = (node, q) => ({
+    x: node.x + (q % 2 ? 0.5 : -0.5) * node.half,
+    y: node.y + (q < 2 ? -0.5 : 0.5) * node.half,
+    half: node.half / 2,
+    mass: 0,
+    comX: 0,
+    comY: 0,
+    body: null,
+    children: null
+  });
+
   const insert = (node, idx) => {
     const b = bodies[idx];
     if (node.body == null && !node.children) {
@@ -200,57 +235,120 @@ function buildBarnesHutTree(bodies) {
       return;
     }
     if (!node.children) {
-      node.children = Array.from({ length: 4 }, (_, q) => childNode(node, q));
+      node.children = Array.from({ length: 4 }, (_, q) => makeChild(node, q));
       const old = node.body;
       node.body = null;
       if (old != null) insert(node, old);
     }
-    const q = childIndex(node, b);
+    const q = quadIndex(node, b);
     insert(node.children[q], idx);
     const total = node.mass + b.mass;
+    node.comX = (node.comX * node.mass + b.mass * b.x) / total;
+    node.comY = (node.comY * node.mass + b.mass * b.y) / total;
     node.mass = total;
-    node.comX = (node.comX * (total - b.mass) + b.mass * b.x) / total;
-    node.comY = (node.comY * (total - b.mass) + b.mass * b.y) / total;
   };
+
   for (let i = 0; i < bodies.length; i++) insert(root, i);
   return root;
 }
 
-function accelFromNode(body, node, options, theta, indexToSkip) {
+function accelFromNode(body, node, options, theta, skipIndex) {
   if (!node || node.mass === 0) return { x: 0, y: 0 };
-  if (!node.children && node.body === indexToSkip) return { x: 0, y: 0 };
+  if (!node.children && node.body === skipIndex) return { x: 0, y: 0 };
   const dx = node.comX - body.x;
   const dy = node.comY - body.y;
-  const dist2 = dx * dx + dy * dy + options.softening * options.softening;
-  const dist = Math.sqrt(dist2);
-  if (!node.children || (node.half * 2) / Math.max(dist, 1e-9) < theta) {
-    if (!node.children && node.body === indexToSkip) return { x: 0, y: 0 };
-    const scale = options.G * node.mass / (dist2 * dist);
+  const d2 = softDistanceSquared(dx, dy, options.softening);
+  const d = Math.sqrt(d2);
+  if (!node.children || (node.half * 2) / Math.max(d, 1e-9) < theta) {
+    if (!node.children && node.body === skipIndex) return { x: 0, y: 0 };
+    const scale = options.G * node.mass / (d2 * d);
     return body.fixed ? { x: 0, y: 0 } : { x: scale * dx, y: scale * dy };
   }
   let ax = 0, ay = 0;
   for (const child of node.children) {
-    const childAcc = accelFromNode(body, child, options, theta, indexToSkip);
-    ax += childAcc.x;
-    ay += childAcc.y;
+    const a = accelFromNode(body, child, options, theta, skipIndex);
+    ax += a.x; ay += a.y;
   }
   return { x: ax, y: ay };
 }
 
-function computeBarnesHutAccelerations(bodies, options = {}) {
+function barnesHutAccelerations(bodies, options = {}) {
   const tree = buildBarnesHutTree(bodies);
   const theta = options.theta ?? 0.65;
   return bodies.map((body, i) => accelFromNode(body, tree, options, theta, i));
 }
 
+function centralPerturbations(body, primary, options) {
+  const cfg = options.forceModel || {};
+  const acc = { x: 0, y: 0 };
+  if (!primary) return acc;
+  const dx = body.x - primary.x;
+  const dy = body.y - primary.y;
+  const r2 = Math.max(dx * dx + dy * dy, 1e-9);
+  const r = Math.sqrt(r2);
+  const mu = options.G * (primary.mass || 1);
+
+  if (cfg.j2Enabled && cfg.j2Strength) {
+    const R = cfg.j2Radius || (primary.radius || 18);
+    const radial = -mu / (r2 * r) * (1 - 1.5 * cfg.j2Strength * (R * R / r2));
+    const base = radial / Math.max(r, 1e-9);
+    acc.x += base * dx;
+    acc.y += base * dy;
+  }
+  if (cfg.radiationEnabled && cfg.radiationStrength) {
+    const outward = cfg.radiationStrength * mu / (r2 * r);
+    acc.x += outward * dx;
+    acc.y += outward * dy;
+  }
+  if (cfg.dragEnabled && cfg.dragStrength) {
+    const density0 = cfg.dragDensity0 ?? 0.0005;
+    const scaleHeight = cfg.dragScaleHeight ?? 140;
+    const rho = density0 * Math.exp(-Math.max(0, r - (cfg.dragReferenceRadius || primary.radius || 18)) / Math.max(scaleHeight, 1));
+    const relVx = body.vx - (primary.vx || 0);
+    const relVy = body.vy - (primary.vy || 0);
+    const speed = Math.hypot(relVx, relVy) || 1e-9;
+    const drag = -cfg.dragStrength * rho * speed;
+    acc.x += drag * relVx;
+    acc.y += drag * relVy;
+  }
+  if (cfg.postNewtonianEnabled && cfg.postNewtonianStrength) {
+    const c2 = (cfg.postNewtonianC ?? 1e6) ** 2;
+    const relVx = body.vx - (primary.vx || 0);
+    const relVy = body.vy - (primary.vy || 0);
+    const v2 = relVx * relVx + relVy * relVy;
+    const rv = dx * relVx + dy * relVy;
+    const factor = mu / (r2 * r) * cfg.postNewtonianStrength * (4 * mu / (c2 * r) - v2 / c2 + 4 * (rv * rv) / (c2 * r2));
+    acc.x -= factor * dx;
+    acc.y -= factor * dy;
+  }
+  return acc;
+}
+
+function applyExtraForces(bodies, acc, options) {
+  const primary = primaryBody(bodies);
+  if (!primary) return;
+  for (let i = 0; i < bodies.length; i++) {
+    if (bodies[i].fixed) continue;
+    const extra = centralPerturbations(bodies[i], primary, options);
+    acc[i].x += extra.x;
+    acc[i].y += extra.y;
+  }
+}
+
+export function computeAccelerations(bodies, options = {}) {
+  const method = options.accelerationMethod || (options.integrator === 'barnes-hut' ? 'barnes-hut' : 'pairwise');
+  const acc = method === 'barnes-hut' && bodies.length > 12 ? barnesHutAccelerations(bodies, options) : pairwiseAccelerations(bodies, options);
+  applyExtraForces(bodies, acc, options);
+  return acc;
+}
+
 export function computeTotalEnergy(bodies, { G = 1, softening = 25 } = {}) {
-  const eps2 = softening * softening;
   let total = 0;
   for (const b of bodies) total += 0.5 * b.mass * (b.vx * b.vx + b.vy * b.vy);
   for (let i = 0; i < bodies.length; i++) {
     for (let j = i + 1; j < bodies.length; j++) {
       const a = bodies[i], b = bodies[j];
-      const d = Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2 + eps2);
+      const d = Math.sqrt(softDistanceSquared(b.x - a.x, b.y - a.y, softening));
       total -= (G * a.mass * b.mass) / d;
     }
   }
@@ -264,9 +362,7 @@ export function computeMomentum(bodies) {
 }
 
 export function computeAngularMomentum(bodies) {
-  let total = 0;
-  for (const b of bodies) total += b.mass * (b.x * b.vy - b.y * b.vx);
-  return total;
+  return bodies.reduce((total, b) => total + b.mass * (b.x * b.vy - b.y * b.vx), 0);
 }
 
 export function computeCenterOfMass(bodies) {
@@ -287,9 +383,7 @@ export function computeClosestApproach(bodies) {
 }
 
 export function computeMaxSpeed(bodies) {
-  let max = 0;
-  for (const b of bodies) max = Math.max(max, Math.hypot(b.vx, b.vy));
-  return max;
+  return bodies.reduce((max, b) => Math.max(max, Math.hypot(b.vx, b.vy)), 0);
 }
 
 export function orbitalElements(body, primary, { G = 1 } = {}) {
@@ -309,19 +403,7 @@ export function orbitalElements(body, primary, { G = 1 } = {}) {
   const apoapsis = Number.isFinite(semiMajorAxis) ? semiMajorAxis * (1 + eccentricity) : Infinity;
   const escapeSpeed = Math.sqrt((2 * mu) / Math.max(r, 1e-9));
   const periapsisAngle = Math.atan2(ey, ex);
-  return {
-    r,
-    v: Math.sqrt(v2),
-    specificEnergy,
-    eccentricity,
-    semiMajorAxis,
-    orbitalPeriod,
-    periapsis,
-    apoapsis,
-    escapeSpeed,
-    periapsisAngle,
-    meanMotion: Number.isFinite(orbitalPeriod) && orbitalPeriod > 0 ? (2 * Math.PI) / orbitalPeriod : 0
-  };
+  return { r, v: Math.sqrt(v2), specificEnergy, eccentricity, semiMajorAxis, orbitalPeriod, periapsis, apoapsis, escapeSpeed, periapsisAngle, meanMotion: Number.isFinite(orbitalPeriod) && orbitalPeriod > 0 ? (2 * Math.PI) / orbitalPeriod : 0 };
 }
 
 function rationalApprox(value, maxDen = 8) {
@@ -350,97 +432,21 @@ export function computeSystemOrbitalAnalytics(bodies, { G = 1, referenceMode = '
     const orbit = orbitalElements(body, reference, { G });
     const ratio = Number.isFinite(orbit.orbitalPeriod) && Number.isFinite(referencePeriod) && referencePeriod > 0 ? orbit.orbitalPeriod / referencePeriod : Infinity;
     const resonance = rationalApprox(ratio, 8);
-    return {
-      index,
-      body,
-      reference,
-      ...orbit,
-      referencePeriod,
-      resonanceRatio: resonance ? `${resonance.num}:${resonance.den}` : '—',
-      resonanceError: resonance ? resonance.error : Infinity
-    };
+    return { index, body, reference, ...orbit, referencePeriod, resonanceRatio: resonance ? `${resonance.num}:${resonance.den}` : '—', resonanceError: resonance ? resonance.error : Infinity };
   });
 }
 
-function centralPerturbations(body, primary, options) {
-  const cfg = options.forceModel || {};
-  const acc = { x: 0, y: 0 };
-  if (!primary) return acc;
-  const dx = body.x - primary.x, dy = body.y - primary.y;
-  const r2 = Math.max(dx * dx + dy * dy, 1e-9);
-  const r = Math.sqrt(r2);
-  const mu = options.G * (primary.mass || 1);
-
-  if (cfg.j2Enabled && cfg.j2Strength) {
-    const j2 = cfg.j2Strength;
-    const R = cfg.j2Radius || (primary.radius || 18);
-    const radial = -mu / (r2 * r) * (1 - 1.5 * j2 * (R * R / r2));
-    const base = radial / Math.max(r, 1e-9);
-    acc.x += base * dx;
-    acc.y += base * dy;
-  }
-
-  if (cfg.radiationEnabled && cfg.radiationStrength) {
-    const beta = cfg.radiationStrength;
-    const outward = beta * mu / (r2 * r);
-    acc.x += outward * dx;
-    acc.y += outward * dy;
-  }
-
-  if (cfg.dragEnabled && cfg.dragStrength) {
-    const density0 = cfg.dragDensity0 ?? 0.0005;
-    const scaleHeight = cfg.dragScaleHeight ?? 140;
-    const rho = density0 * Math.exp(-Math.max(0, r - (cfg.dragReferenceRadius || primary.radius || 18)) / Math.max(scaleHeight, 1));
-    const relVx = body.vx - (primary.vx || 0);
-    const relVy = body.vy - (primary.vy || 0);
-    const speed = Math.hypot(relVx, relVy) || 1e-9;
-    const drag = -cfg.dragStrength * rho * speed;
-    acc.x += drag * relVx;
-    acc.y += drag * relVy;
-  }
-
-  if (cfg.postNewtonianEnabled && cfg.postNewtonianStrength) {
-    const c2 = (cfg.postNewtonianC ?? 1e6) ** 2;
-    const relVx = body.vx - (primary.vx || 0);
-    const relVy = body.vy - (primary.vy || 0);
-    const v2 = relVx * relVx + relVy * relVy;
-    const rv = dx * relVx + dy * relVy;
-    const factor = mu / (r2 * r) * cfg.postNewtonianStrength * (4 * mu / (c2 * r) - v2 / c2 + 4 * (rv * rv) / (c2 * r2));
-    acc.x -= factor * dx;
-    acc.y -= factor * dy;
-  }
-
-  return acc;
-}
-
-function applyExtraForces(bodies, acc, options) {
-  const primary = primaryBody(bodies);
-  if (!primary) return;
-  for (let i = 0; i < bodies.length; i++) {
-    const body = bodies[i];
-    if (body.fixed) continue;
-    const extra = centralPerturbations(body, primary, options);
-    acc[i].x += extra.x;
-    acc[i].y += extra.y;
-  }
-}
-
-export function computeAccelerations(bodies, options = {}) {
-  const method = options.accelerationMethod || (options.integrator === 'barnes-hut' ? 'barnes-hut' : 'pairwise');
-  const acc = method === 'barnes-hut' && bodies.length > 12 ? computeBarnesHutAccelerations(bodies, options) : computePairwiseAccelerations(bodies, options);
-  applyExtraForces(bodies, acc, options);
-  return acc;
-}
-
 function snapshotBodies(bodies) {
-  return bodies.map((body) => ({ x: body.x, y: body.y, vx: body.vx, vy: body.vy, mass: body.mass, fixed: !!body.fixed }));
+  return bodies.map((b) => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, mass: b.mass, fixed: !!b.fixed }));
 }
 
 function commitSnapshot(bodies, snapshot) {
   for (let i = 0; i < bodies.length; i++) {
-    const body = bodies[i], next = snapshot[i];
-    if (body.fixed) continue;
-    body.x = next.x; body.y = next.y; body.vx = next.vx; body.vy = next.vy;
+    if (bodies[i].fixed) continue;
+    bodies[i].x = snapshot[i].x;
+    bodies[i].y = snapshot[i].y;
+    bodies[i].vx = snapshot[i].vx;
+    bodies[i].vy = snapshot[i].vy;
   }
 }
 
@@ -450,30 +456,34 @@ function derivatives(snapshot, options) {
 }
 
 function shifted(snapshot, delta, scale) {
-  return snapshot.map((body, i) => body.fixed ? { ...body } : { ...body, x: body.x + delta[i].x * scale, y: body.y + delta[i].y * scale, vx: body.vx + delta[i].vx * scale, vy: body.vy + delta[i].vy * scale });
+  return snapshot.map((body, i) => body.fixed ? { ...body } : {
+    ...body,
+    x: body.x + delta[i].x * scale,
+    y: body.y + delta[i].y * scale,
+    vx: body.vx + delta[i].vx * scale,
+    vy: body.vy + delta[i].vy * scale
+  });
 }
 
 function eulerStep(bodies, dt, options) {
   const acc = computeAccelerations(bodies, options);
   for (let i = 0; i < bodies.length; i++) {
-    const body = bodies[i];
-    if (body.fixed) continue;
-    body.x += body.vx * dt;
-    body.y += body.vy * dt;
-    body.vx += acc[i].x * dt;
-    body.vy += acc[i].y * dt;
+    if (bodies[i].fixed) continue;
+    bodies[i].x += bodies[i].vx * dt;
+    bodies[i].y += bodies[i].vy * dt;
+    bodies[i].vx += acc[i].x * dt;
+    bodies[i].vy += acc[i].y * dt;
   }
 }
 
 function symplecticStep(bodies, dt, options) {
   const acc = computeAccelerations(bodies, options);
   for (let i = 0; i < bodies.length; i++) {
-    const body = bodies[i];
-    if (body.fixed) continue;
-    body.vx += acc[i].x * dt;
-    body.vy += acc[i].y * dt;
-    body.x += body.vx * dt;
-    body.y += body.vy * dt;
+    if (bodies[i].fixed) continue;
+    bodies[i].vx += acc[i].x * dt;
+    bodies[i].vy += acc[i].y * dt;
+    bodies[i].x += bodies[i].vx * dt;
+    bodies[i].y += bodies[i].vy * dt;
   }
 }
 
@@ -489,12 +499,11 @@ function verletStep(bodies, dt, options) {
   }));
   const acc1 = computeAccelerations(predicted, options);
   for (let i = 0; i < bodies.length; i++) {
-    const body = bodies[i];
-    if (body.fixed) continue;
-    body.x += body.vx * dt + 0.5 * acc0[i].x * dt * dt;
-    body.y += body.vy * dt + 0.5 * acc0[i].y * dt * dt;
-    body.vx += 0.5 * (acc0[i].x + acc1[i].x) * dt;
-    body.vy += 0.5 * (acc0[i].y + acc1[i].y) * dt;
+    if (bodies[i].fixed) continue;
+    bodies[i].x += bodies[i].vx * dt + 0.5 * acc0[i].x * dt * dt;
+    bodies[i].y += bodies[i].vy * dt + 0.5 * acc0[i].y * dt * dt;
+    bodies[i].vx += 0.5 * (acc0[i].x + acc1[i].x) * dt;
+    bodies[i].vy += 0.5 * (acc0[i].y + acc1[i].y) * dt;
   }
 }
 
@@ -515,10 +524,12 @@ function rk4StepSnapshot(snapshot, dt, options) {
 function errorEstimate(a, b) {
   let worst = 0;
   for (let i = 0; i < a.length; i++) {
-    const s = b[i];
-    const scale = Math.max(1, Math.abs(s.x), Math.abs(s.y), Math.abs(s.vx), Math.abs(s.vy));
-    const dx = a[i].x - s.x, dy = a[i].y - s.y, dvx = a[i].vx - s.vx, dvy = a[i].vy - s.vy;
-    worst = Math.max(worst, Math.sqrt(dx * dx + dy * dy + dvx * dvx + dvy * dvy) / scale);
+    const scale = Math.max(1, Math.abs(b[i].x), Math.abs(b[i].y), Math.abs(b[i].vx), Math.abs(b[i].vy));
+    const dx = a[i].x - b[i].x;
+    const dy = a[i].y - b[i].y;
+    const dvx = a[i].vx - b[i].vx;
+    const dvy = a[i].vy - b[i].vy;
+    worst = Math.max(worst, Math.hypot(dx, dy, dvx, dvy) / scale);
   }
   return worst;
 }
@@ -526,18 +537,17 @@ function errorEstimate(a, b) {
 function adaptiveRk4Step(bodies, dt, options, stats) {
   const tol = options.adaptiveTolerance ?? 1e-4;
   const minStep = options.minAdaptiveDt ?? dt / 1024;
-  const maxRetries = options.maxAdaptiveRetries ?? 24;
   let remaining = dt;
   let step = dt;
   let accepted = 0;
   let rejected = 0;
-  const stepHistory = [];
-  const bodyState = snapshotBodies(bodies);
+  const history = [];
+  const state = snapshotBodies(bodies);
 
-  while (remaining > 1e-12 && accepted + rejected < maxRetries * 64) {
+  while (remaining > 1e-12 && accepted + rejected < 1024) {
     step = Math.min(step, remaining);
-    const full = rk4StepSnapshot(bodyState, step, options);
-    const half = rk4StepSnapshot(bodyState, step / 2, options);
+    const full = rk4StepSnapshot(state, step, options);
+    const half = rk4StepSnapshot(state, step / 2, options);
     const half2 = rk4StepSnapshot(half, step / 2, options);
     const err = errorEstimate(full, half2);
     if (err > tol && step > minStep) {
@@ -545,27 +555,21 @@ function adaptiveRk4Step(bodies, dt, options, stats) {
       rejected++;
       continue;
     }
-    bodyState.splice(0, bodyState.length, ...half2);
+    state.splice(0, state.length, ...half2);
     remaining -= step;
     accepted++;
-    stepHistory.push({ dt: step, error: err });
+    history.push({ dt: step, error: err });
     if (err < tol * 0.125) step *= 1.6;
     else if (err > tol * 0.6) step *= 0.85;
   }
-  commitSnapshot(bodies, bodyState);
+
+  commitSnapshot(bodies, state);
   stats.acceptedSteps = accepted;
   stats.rejectedSteps = rejected;
   stats.substeps = accepted + rejected;
-  stats.maxError = stepHistory.reduce((max, item) => Math.max(max, item.error), 0);
-  stats.meanSubstep = stepHistory.length ? stepHistory.reduce((sum, item) => sum + item.dt, 0) / stepHistory.length : dt;
-  stats.stepHistory = stepHistory;
-}
-
-function stepWithFixedIntegrator(bodies, integrator, dt, options) {
-  if (integrator === 'euler') eulerStep(bodies, dt, options);
-  else if (integrator === 'verlet') verletStep(bodies, dt, options);
-  else if (integrator === 'rk4') commitSnapshot(bodies, rk4StepSnapshot(snapshotBodies(bodies), dt, options));
-  else symplecticStep(bodies, dt, options);
+  stats.maxError = history.reduce((m, e) => Math.max(m, e.error), 0);
+  stats.meanSubstep = history.length ? history.reduce((s, e) => s + e.dt, 0) / history.length : dt;
+  stats.stepHistory = history;
 }
 
 function resolveCollisions(bodies, mode) {
@@ -586,7 +590,7 @@ function resolveCollisions(bodies, mode) {
         survivor.vx = (survivor.mass * survivor.vx + absorbed.mass * absorbed.vx) / totalMass;
         survivor.vy = (survivor.mass * survivor.vy + absorbed.mass * absorbed.vy) / totalMass;
         survivor.mass = totalMass;
-        survivor.radius = Math.max(2, Math.sqrt(survivor.radius * survivor.radius + absorbed.radius * absorbed.radius) * 1.05);
+        survivor.radius = Math.max(2, Math.sqrt(survivor.radius ** 2 + absorbed.radius ** 2) * 1.05);
         bodies.splice(bodies.indexOf(absorbed), 1);
         i = -1;
         break;
@@ -613,11 +617,18 @@ function resolveCollisions(bodies, mode) {
   return { collisions };
 }
 
-export function stepSystem(bodies, { integrator = 'symplectic', dt = 0.02, G = 1, softening = 25, collision = 'none', accelerationMethod = null, forceModel = null, adaptiveTolerance = 1e-4, minAdaptiveDt = dt / 1024, stats = null } = {}) {
+export function stepSystem(
+  bodies,
+  { integrator = 'symplectic', dt = 0.02, G = 1, softening = 25, collision = 'none', accelerationMethod = null, forceModel = null, adaptiveTolerance = 1e-4, minAdaptiveDt = dt / 1024, stats = null } = {}
+) {
   const localStats = { acceptedSteps: 1, rejectedSteps: 0, substeps: 1, maxError: 0, meanSubstep: dt, stepHistory: [], collisions: 0 };
   const options = { G, softening, forceModel, adaptiveTolerance, minAdaptiveDt, accelerationMethod: accelerationMethod || (integrator === 'barnes-hut' ? 'barnes-hut' : 'pairwise') };
   if (integrator === 'rk45') adaptiveRk4Step(bodies, dt, options, localStats);
-  else stepWithFixedIntegrator(bodies, integrator, dt, options);
+  else if (integrator === 'euler') eulerStep(bodies, dt, options);
+  else if (integrator === 'verlet') verletStep(bodies, dt, options);
+  else if (integrator === 'rk4') commitSnapshot(bodies, rk4StepSnapshot(snapshotBodies(bodies), dt, options));
+  else symplecticStep(bodies, dt, options);
+
   const collisionStats = resolveCollisions(bodies, collision);
   localStats.collisions = collisionStats.collisions;
   if (stats && typeof stats === 'object') Object.assign(stats, localStats);
@@ -629,30 +640,11 @@ export function recommendedSubsteps(bodies, { dt = 0.02, softening = 25, maxSubs
   return Math.min(maxSubsteps, Math.max(1, Math.ceil((aggressiveness * dt * 55) / closest)));
 }
 
-export function computeSystemOrbitalAnalytics(bodies, { G = 1, referenceMode = 'primary', referenceIndex = 0 } = {}) {
-  const primary = primaryBody(bodies);
-  const barycenter = computeCenterOfMass(bodies);
-  const reference = referenceMode === 'barycenter'
-    ? { x: barycenter.x, y: barycenter.y, vx: 0, vy: 0, mass: barycenter.totalMass, radius: 0, fixed: true, label: 'Barycenter' }
-    : referenceMode === 'manual'
-      ? bodies[referenceIndex] || primary
-      : primary;
-  if (!reference) return [];
-  const referencePeriod = primary && reference !== primary ? orbitalElements(primary, reference, { G }).orbitalPeriod : Infinity;
-  return bodies.map((body, index) => {
-    if (body === reference) return { index, body, reference, skipped: true };
-    const orbit = orbitalElements(body, reference, { G });
-    const ratio = Number.isFinite(orbit.orbitalPeriod) && Number.isFinite(referencePeriod) && referencePeriod > 0 ? orbit.orbitalPeriod / referencePeriod : Infinity;
-    const resonance = rationalApprox(ratio, 8);
-    return { index, body, reference, ...orbit, referencePeriod, resonanceRatio: resonance ? `${resonance.num}:${resonance.den}` : '—', resonanceError: resonance ? resonance.error : Infinity };
-  });
-}
-
 export function benchmarkIntegrators(initialBodies, { steps = 1200, dt = 0.02, G = 1, softening = 25, forceModel = null } = {}) {
   const methods = ['euler', 'symplectic', 'verlet', 'rk4', 'rk45', 'barnes-hut'];
   const reference = cloneBodies(initialBodies);
   for (let i = 0; i < steps; i++) stepSystem(reference, { integrator: 'rk4', dt, G, softening, collision: 'none', forceModel });
-  const refPositions = reference.map((b) => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy }));
+  const refPositions = reference.map((b) => ({ x: b.x, y: b.y }));
   const results = [];
   for (const integrator of methods) {
     const bodies = cloneBodies(initialBodies);
@@ -664,10 +656,7 @@ export function benchmarkIntegrators(initialBodies, { steps = 1200, dt = 0.02, G
     const energy1 = computeTotalEnergy(bodies, { G, softening });
     const momentum0 = computeMomentum(initialBodies);
     const momentum1 = computeMomentum(bodies);
-    const trajectoryError = Math.sqrt(bodies.reduce((sum, body, i) => {
-      const ref = refPositions[i];
-      return sum + (body.x - ref.x) ** 2 + (body.y - ref.y) ** 2;
-    }, 0) / Math.max(bodies.length, 1));
+    const trajectoryError = Math.sqrt(bodies.reduce((sum, body, i) => sum + (body.x - refPositions[i].x) ** 2 + (body.y - refPositions[i].y) ** 2, 0) / Math.max(bodies.length, 1));
     results.push({
       integrator,
       runtimeMs: ended - started,
