@@ -1,24 +1,27 @@
 # PlanetarySimulator — Orbital Lab
 
-Orbital Lab is an interactive 2D N-body gravity simulator designed as a portfolio-grade computational physics project.
+Orbital Lab is an interactive 2D N-body gravity simulator built as a computational-physics portfolio project.
 
-The project now centers on three ideas:
+The current codebase is organized around three goals:
 
-1. **Numerical methods are visible.** Different integrators produce different energy drift, local error, and trajectory behavior.
-2. **Experiments are reproducible.** Random systems are seeded, telemetry can be exported, run bundles can be saved and re-imported, and the browser restores the last control state automatically.
-3. **Physics is measurable.** The UI exposes orbital elements, conservation metrics, benchmark comparisons, and a live diagnostics score that flags unstable runs before they become misleading.
+1. **Numerical behavior is visible.** The simulator exposes multiple integrators, benchmark comparisons, and error-oriented telemetry.
+2. **Experiments are reproducible.** Seeds, bundles, saved sessions, and preset replication configurations make runs repeatable.
+3. **Fallbacks are explicit.** When higher-performance paths are unavailable, the app stays usable and the interface explains what is active.
 
 ## Current features
 
-- N-body Newtonian gravity with pairwise interactions
+- Newtonian N-body gravity with pairwise interactions
 - Barnes–Hut tree approximation for larger systems
-- Gravitational softening to avoid singular behavior during close encounters
+- Regularized close-encounter handling for near-collision passes
 - Integrators:
   - Euler
   - Symplectic Euler
   - Velocity Verlet
+  - Yoshida 4th-order symplectic stepping
   - RK4
-  - Adaptive RK4 / RK45-style step control
+  - Adaptive RK4 / RK45-style control
+  - IAS15-style high-accuracy baseline
+  - Barnes–Hut acceleration mode
 - Optional perturbation models:
   - J2 oblateness
   - Atmospheric drag
@@ -37,7 +40,6 @@ The project now centers on three ideas:
   - Ghost pass-through
   - Inelastic merge
   - Elastic bounce
-- Adaptive timestep control based on close-encounter spacing, with explicit error reporting for the adaptive solver
 - Live metrics:
   - Total energy and energy drift
   - Linear momentum magnitude
@@ -57,22 +59,27 @@ The project now centers on three ideas:
   - Periapsis precession tracking
   - Finite-time Lyapunov estimate
   - Event log for periapsis, apoapsis, escape transitions, and collisions
-- Energy-drift graph
-- Phase-space graph
-- Adaptive-error graph
-- CSV export
-- PNG snapshot export
-- Reproducibility bundle export with UI state, diagnostics, and canvas capture
-- Reproducibility bundle import for restoring shared runs
-- Automatic local session persistence in the browser, with restore and clear shortcuts
-- Benchmark mode comparing all integrators on the same initial conditions
-- Seeded random generation for reproducible experiments
-- Mouse drag-to-launch interaction
-- Trails, velocity vectors, labels, and zoom controls
-- Keyboard shortcuts for pause, reset, CSV export, PNG export, benchmark runs, bundle export, session restore, session clearing, and shortcut help
-- Presentation mode for fullscreen demos with a shareable run brief
-- Automatic pause behavior when the tab is hidden
-- Live diagnostics panel with a stability score, a clear recommendation, and benchmark leader detection
+- Research overlay:
+  - MEGNO-style diagnostic proxy
+  - Mean-motion resonance display
+  - Poincaré-style surface-of-section sampling
+  - Historical replication presets
+  - Live LaTeX reference panel
+- Export and persistence:
+  - CSV export
+  - PNG snapshot export
+  - Reproducibility bundle export
+  - Reproducibility bundle import
+  - Automatic local session persistence in the browser
+- Presentation and workflow support:
+  - Keyboard shortcuts for pause, reset, CSV export, PNG export, benchmark runs, bundle export/import, session restore, session clearing, and shortcut help
+  - Presentation mode with a shareable run brief
+  - Automatic pause behavior when the tab is hidden
+  - Live diagnostics panel with a stability score, a recommendation, and benchmark leader detection
+- Fallback-aware hardware posture:
+  - WebGPU detection with CPU fallback
+  - WASM detection with JavaScript fallback
+  - Worker detection with main-thread fallback
 
 ## Project structure
 
@@ -80,12 +87,14 @@ The project now centers on three ideas:
 PlanetarySimulator/
 ├── index.html               # UI shell
 ├── styles-v2.css            # Visual system
-├── physics-globals.js        # Global Body shim for the browser module runtime
+├── physics-globals.js       # Global Body shim for the browser module runtime
 ├── sim.js                   # Legacy entrypoint that loads the module runtime
 ├── sim-advanced.mjs         # Advanced browser runtime and simulation controller
 ├── enhancements.mjs         # Reproducibility, session persistence, diagnostics, and shortcut overlay
 ├── presentation-boost.mjs   # Presentation mode and run briefs
 ├── physics-core-advanced.mjs # Advanced physics, integrators, force models, benchmark utilities
+├── research-features.mjs    # Research overlay, replication presets, and fallback notices
+├── ui-polish.mjs            # HUD label polish for advanced solver names
 ├── tests/
 │   └── physics.test.mjs
 └── .github/
@@ -95,19 +104,17 @@ PlanetarySimulator/
 
 ## Numerical model
 
-For each pair of bodies, the simulator computes a softened Newtonian acceleration:
-
-`a_i = G * m_j * r_ij / (|r_ij|^2 + epsilon^2)^(3/2)`
-
-The energy metric uses kinetic energy plus softened pairwise potential energy, which makes energy drift useful for comparing integrators. The softening term is intentionally a numerical device, not a physical claim.
+The current core uses exact Newtonian pairwise forces in the normal path. Close encounters are handled by a regularized fallback instead of artificial global softening. This keeps the standard trajectory evolution clean while still giving the simulator a safe path through near-collision situations.
 
 ### Why the integrators matter
 
 - **Euler** is intentionally unstable enough to serve as a baseline.
-- **Symplectic Euler** generally behaves better for long-lived orbital systems.
-- **Velocity Verlet** is a strong conservative-method compromise.
-- **RK4** provides a high-accuracy reference for shorter runs, but it is not symplectic.
-- **Adaptive RK4 / RK45-style control** adds explicit local-error monitoring.
+- **Symplectic Euler** gives a simple conservative stepping reference.
+- **Velocity Verlet** remains a strong low-cost conservative method.
+- **Yoshida 4** improves long-run Hamiltonian behavior through symplectic composition.
+- **RK4** is a useful non-symplectic accuracy comparison.
+- **Adaptive RK4 / RK45-style control** adds local-error monitoring.
+- **IAS15-style baseline** serves as the high-accuracy comparison mode in benchmark runs.
 
 ## Running locally
 
@@ -121,22 +128,23 @@ python3 -m http.server
 
 ## What to try
 
-- Compare Euler vs Symplectic Euler on the same preset.
-- Compare Verlet, RK4, and adaptive RK4 while watching energy drift and adaptive error.
-- Turn adaptive stepping off and increase the timestep.
-- Randomize the system using a seed and rerun it later.
+- Compare Euler, Verlet, Yoshida 4, and IAS15 on the same preset.
 - Run the benchmark and inspect the generated report.
+- Use the resonant preset and inspect the resonance display.
+- Open the research overlay and compare the replication presets.
 - Export CSV telemetry and inspect the numbers outside the browser.
-- Export a bundle and use it as a reproducibility artifact.
-- Import a bundle and restore a shared experiment.
+- Export a bundle and import it again.
 - Open the diagnostics panel and copy the summary into notes.
 - Switch on presentation mode and copy the run brief for a demo slide or interview note.
-- Close and reopen the page to confirm the browser restores the last control state.
 
 ## Testing and CI
 
-A GitHub Actions workflow runs syntax checks and a small Node-based physics test suite on every push and pull request.
+A GitHub Actions workflow runs syntax checks and a Node-based physics test suite on every push and pull request. The tests cover deterministic seeded presets, orbital-element calculations, integrator paths, benchmark reporting, and the new advanced solver names.
+
+## Validation notes
+
+The repository is wired for graceful fallback when WebGPU, WASM, or workers are unavailable. The browser runtime is still JavaScript-first, so those capabilities improve the experience when present but do not gate the simulator itself.
 
 ## Portfolio framing
 
-The strongest story for admissions is not just that the simulation looks good. It is that the project makes numerical error, conservation behavior, and integrator tradeoffs visible in a controlled experiment environment. The diagnostics layer now turns that into an immediate decision aid, so the repository reads as a compact piece of scientific software engineering rather than a visual toy.
+The strongest story for admissions is not just that the simulation looks good. It is that the project makes numerical error, conservation behavior, integrator tradeoffs, and reproducible experiment design visible in a controlled scientific environment.
