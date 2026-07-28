@@ -1,5 +1,12 @@
 # PlanetarySimulator — Orbital Lab
 
+![CI](https://github.com/insightlabs38-pixel/PlanetarySimulator/actions/workflows/ci.yml/badge.svg?branch=main)
+![Top language](https://img.shields.io/github/languages/top/insightlabs38-pixel/PlanetarySimulator)
+![Repo size](https://img.shields.io/github/repo-size/insightlabs38-pixel/PlanetarySimulator)
+![License](https://img.shields.io/github/license/insightlabs38-pixel/PlanetarySimulator)
+![Last commit](https://img.shields.io/github/last-commit/insightlabs38-pixel/PlanetarySimulator/main)
+![GitHub stars](https://img.shields.io/github/stars/insightlabs38-pixel/PlanetarySimulator?style=social)
+
 Orbital Lab is an interactive 2D N-body gravity simulator built as a computational-physics portfolio project.
 
 The current codebase is organized around three goals:
