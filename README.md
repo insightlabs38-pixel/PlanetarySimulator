@@ -3,7 +3,7 @@
 ![CI](https://github.com/insightlabs38-pixel/PlanetarySimulator/actions/workflows/ci.yml/badge.svg?branch=main)
 ![GitHub top language](https://img.shields.io/github/languages/top/insightlabs38-pixel/PlanetarySimulator)
 ![GitHub repo size](https://img.shields.io/github/repo-size/insightlabs38-pixel/PlanetarySimulator)
-![GitHub license](https://img.shields.io/github/license/insightlabs38-pixel/PlanetarySimulator)
+![License: MPL 2.0](https://img.shields.io/badge/license-MPL%202.0-blue.svg)
 ![GitHub last commit](https://img.shields.io/github/last-commit/insightlabs38-pixel/PlanetarySimulator/main)
 ![GitHub stars](https://img.shields.io/github/stars/insightlabs38-pixel/PlanetarySimulator?style=social)
 
